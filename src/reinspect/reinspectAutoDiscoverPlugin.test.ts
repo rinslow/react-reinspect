@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   shouldSkipThirdPartyModule,
   transformModuleForAutoDiscover,
-} from '../../reinspectAutoDiscoverPlugin'
+} from '../plugin/reinspectAutoDiscoverPlugin'
 
 describe('transformModuleForAutoDiscover', () => {
   it('wraps top-level PascalCase function declarations', () => {
@@ -21,7 +21,7 @@ describe('transformModuleForAutoDiscover', () => {
 
     expect(output.modified).toBe(true)
     expect(output.code).toContain(
-      "import { autoWrapInspectable } from \"/src/reinspect/autoWrap\";",
+      "import { autoWrapInspectable } from \"react-reinspect\";",
     )
     expect(output.code).toContain('TodoHeader = autoWrapInspectable(TodoHeader')
   })
@@ -57,6 +57,38 @@ describe('transformModuleForAutoDiscover', () => {
     const output = transformModuleForAutoDiscover(
       input,
       '/app/src/helpers.ts',
+      'first-party',
+    )
+
+    expect(output.modified).toBe(false)
+  })
+
+  it('does not wrap PascalCase helper functions without renderable React output', () => {
+    const input = `
+      function FormatAmount(value: number) {
+        return value.toFixed(2)
+      }
+      const formatted = FormatAmount(12)
+    `
+
+    const output = transformModuleForAutoDiscover(
+      input,
+      '/app/src/formatting.ts',
+      'first-party',
+    )
+
+    expect(output.modified).toBe(false)
+  })
+
+  it('does not wrap PascalCase variable helpers without renderable React output', () => {
+    const input = `
+      const BuildPayload = (id: string) => ({ id, createdAt: Date.now() })
+      export const payload = BuildPayload('todo-1')
+    `
+
+    const output = transformModuleForAutoDiscover(
+      input,
+      '/app/src/payload.ts',
       'first-party',
     )
 

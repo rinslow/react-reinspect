@@ -1,6 +1,6 @@
 {
   "name": "react-reinspect",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Visual runtime inspector for React components with render counters and style overrides.",
   "keywords": [
     "react",
@@ -19,10 +19,19 @@
       "import": "./dist/lib/index.js",
       "require": "./dist/lib/index.cjs"
     },
+    "./vite-plugin": {
+      "types": "./dist/plugin/reinspectAutoDiscoverPlugin.d.ts",
+      "import": "./dist/plugin/reinspectAutoDiscoverPlugin.js"
+    },
+    "./next-plugin": {
+      "types": "./dist/plugin/reinspectNextPlugin.d.ts",
+      "import": "./dist/plugin/reinspectNextPlugin.js"
+    },
     "./style.css": "./dist/lib/style.css"
   },
   "files": [
     "dist/lib",
+    "dist/plugin",
     "README.md"
   ],
   "sideEffects": [
@@ -32,11 +41,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:lib": "vite build -c vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "build:plugin": "tsc -p tsconfig.plugin.json",
+    "build:package": "pnpm build:lib && pnpm build:plugin",
     "lint": "eslint .",
     "preview": "vite preview",
     "pack:check": "npm pack --dry-run --cache ./.cache/npm",
     "publish:npm": "npm publish --access public --cache ./.cache/npm",
-    "prepublishOnly": "pnpm build:lib",
+    "prepublishOnly": "pnpm build:package",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -61,14 +72,14 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
+    "globals": "^17.5.0",
     "jsdom": "^29.0.2",
     "magic-string": "^0.30.21",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "typescript": "~6.0.2",
-    "typescript-eslint": "^8.58.0",
-    "vite": "^8.0.4",
-    "vitest": "^4.1.4",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "typescript-eslint": "^8.58.1",
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
   }
 }

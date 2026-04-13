@@ -7,13 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      react:
-        specifier: ^19.2.4
-        version: 19.2.5
-      react-dom:
-        specifier: ^19.2.4
-        version: 19.2.5(react@19.2.5)
     devDependencies:
       '@babel/generator':
         specifier: ^7.29.1
@@ -64,7 +57,7 @@ importers:
         specifier: ^0.5.2
         version: 0.5.2(eslint@9.39.4)
       globals:
-        specifier: ^17.4.0
+        specifier: ^17.5.0
         version: 17.5.0
       jsdom:
         specifier: ^29.0.2
@@ -72,14 +65,20 @@ importers:
       magic-string:
         specifier: ^0.30.21
         version: 0.30.21
+      react:
+        specifier: ^19.2.5
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.2.5
+        version: 19.2.5(react@19.2.5)
       typescript:
         specifier: ~6.0.2
         version: 6.0.2
       typescript-eslint:
-        specifier: ^8.58.0
+        specifier: ^8.58.1
         version: 8.58.1(eslint@9.39.4)(typescript@6.0.2)
       vite:
-        specifier: ^8.0.4
+        specifier: ^8.0.8
         version: 8.0.8(@types/node@24.12.2)
       vitest:
         specifier: ^4.1.4

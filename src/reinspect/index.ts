@@ -1,4 +1,8 @@
 import './reinspect.css'
+import reinspectStyles from './reinspect.css?inline'
+import { injectReinspectStyles } from './injectStyles'
+
+injectReinspectStyles(reinspectStyles)
 
 export { ReinspectProvider, ReinspectFloatingToggle } from './context'
 export { useReinspect } from './useReinspect'

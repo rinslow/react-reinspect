@@ -50,6 +50,41 @@ Peer dependencies:
 - `react >= 18`
 - `react-dom >= 18`
 
+Styles are auto-injected when `react-reinspect` loads.  
+If your app enforces strict CSP and blocks inline styles, import this once in your app root:
+
+```tsx
+import 'react-reinspect/style.css'
+```
+
+Auto-discovery is compile-time and requires the Vite plugin:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { reinspectAutoDiscoverPlugin } from 'react-reinspect/vite-plugin'
+
+export default defineConfig({
+  plugins: [reinspectAutoDiscoverPlugin(), react()],
+})
+```
+
+Without this plugin, only manually wrapped components (`withReinspect`) are inspectable.
+
+Next.js (webpack mode) can use:
+
+```ts
+// next.config.ts
+import { withReinspectAutoDiscover } from 'react-reinspect/next-plugin'
+
+const nextConfig = {}
+
+export default withReinspectAutoDiscover(nextConfig)
+```
+
+If your Next dev server runs with Turbopack, switch to webpack mode for this transform plugin.
+
 
 ## Example
 
@@ -66,13 +101,21 @@ You are a senior React code agent, your task is to integrate react-reinspect to 
 Do all of the following in one pass:
 1) Install `react-reinspect` using this repo's package manager.
 2) Turn it on in dev mode ONLY by wiring `ReinspectProvider` at app root.
-3) Keep production safe (e.g.: `enabled: import.meta.env.DEV` or however we manage dev/prod in this repo.).
-4) Run validation (build/tests if available) and fix any issues.
-5) Output a concise summary with changed files and how to use it.
+   - Vite: use `enabled: import.meta.env.DEV`
+   - Next.js: use `enabled: process.env.NODE_ENV !== 'production'`
+   - Next App Router: mount a client `Providers` component from `app/layout.tsx`
+   - Next Pages Router: mount `ReinspectProvider` in `pages/_app.tsx`
+3) If this app uses Vite, add `reinspectAutoDiscoverPlugin` from `react-reinspect/vite-plugin` in `vite.config.*`.
+4) If this app uses Next.js (webpack mode), wrap the Next config with `withReinspectAutoDiscover` from `react-reinspect/next-plugin`.
+5) If Next.js is running with Turbopack, either switch dev to webpack for auto-discovery transforms (`next dev --webpack`) or fall back to manual wrapping (`withReinspect`).
+6) Keep production safe (e.g.: `enabled: import.meta.env.DEV` or however we manage dev/prod in this repo.).
+7) Run validation (build/tests if available) and fix any issues.
+8) Output a concise summary with changed files and how to use it.
 
 Use this example as the baseline:
 
 import { ReinspectProvider, type ReinspectConfig } from 'react-reinspect'
+import 'react-reinspect/style.css'
 
 const reinspectConfig: ReinspectConfig = {
   enabled: import.meta.env.DEV,
@@ -85,6 +128,60 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return <ReinspectProvider config={reinspectConfig}>{children}</ReinspectProvider>
 }
 
+// Next.js App Router (app/providers.tsx)
+'use client'
+import { ReinspectProvider, type ReinspectConfig } from 'react-reinspect'
+import 'react-reinspect/style.css'
+
+const nextReinspectConfig: ReinspectConfig = {
+  enabled: process.env.NODE_ENV !== 'production',
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <ReinspectProvider config={nextReinspectConfig}>
+      {children}
+    </ReinspectProvider>
+  )
+}
+
+// Next.js App Router mount (app/layout.tsx)
+import { Providers } from './providers'
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  )
+}
+
+For auto-discovery setup, apply one of these depending on framework:
+
+// Vite
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { reinspectAutoDiscoverPlugin } from 'react-reinspect/vite-plugin'
+
+export default defineConfig({
+  plugins: [reinspectAutoDiscoverPlugin(), react()],
+})
+
+// Next.js (webpack mode)
+import { withReinspectAutoDiscover } from 'react-reinspect/next-plugin'
+
+const nextConfig = {}
+export default withReinspectAutoDiscover(nextConfig)
+
+// Next.js dev script for auto-discovery:
+// package.json -> "dev": "next dev --webpack"
+
 Output format I want from you:
 - What changed (bullet list)
 - Why this is safe in production
@@ -94,6 +191,8 @@ Output format I want from you:
 
 ## Manual Quick Start
 ### 1) Wrap your app with `ReinspectProvider`
+
+Vite:
 
 ```tsx
 import {
@@ -114,7 +213,106 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 }
 ```
 
-### 2) Use it in the browser
+Next.js App Router:
+
+```tsx
+// app/providers.tsx
+'use client'
+
+import { ReinspectProvider, type ReinspectConfig } from 'react-reinspect'
+import 'react-reinspect/style.css'
+
+const reinspectConfig: ReinspectConfig = {
+  enabled: process.env.NODE_ENV !== 'production',
+  // startActive: true,
+  // showFloatingToggle: true,
+  // inspectMode: 'first-party',
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <ReinspectProvider config={reinspectConfig}>{children}</ReinspectProvider>
+}
+```
+
+```tsx
+// app/layout.tsx
+import { Providers } from './providers'
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  )
+}
+```
+
+Next.js Pages Router:
+
+```tsx
+// pages/_app.tsx
+import type { AppProps } from 'next/app'
+import { ReinspectProvider, type ReinspectConfig } from 'react-reinspect'
+import 'react-reinspect/style.css'
+
+const reinspectConfig: ReinspectConfig = {
+  enabled: process.env.NODE_ENV !== 'production',
+}
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <ReinspectProvider config={reinspectConfig}>
+      <Component {...pageProps} />
+    </ReinspectProvider>
+  )
+}
+```
+
+### 2) Enable auto-discovery transforms (pick your framework)
+
+Vite:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { reinspectAutoDiscoverPlugin } from 'react-reinspect/vite-plugin'
+
+export default defineConfig({
+  plugins: [reinspectAutoDiscoverPlugin(), react()],
+})
+```
+
+Next.js (webpack mode):
+
+```ts
+// next.config.ts
+import { withReinspectAutoDiscover } from 'react-reinspect/next-plugin'
+
+const nextConfig = {}
+export default withReinspectAutoDiscover(nextConfig)
+```
+
+If your Next dev server runs with Turbopack, switch to webpack mode for auto-discovery transforms.
+If you keep Turbopack enabled, skip the Next transform plugin and use manual wrapping (`withReinspect`) instead.
+
+Next.js webpack dev script example:
+
+```json
+{
+  "scripts": {
+    "dev": "next dev --webpack"
+  }
+}
+```
+
+### 3) Use it in the browser
 
 - Click `Reinspect settings` button.
 - Right-click a wrapped component.

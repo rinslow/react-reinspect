@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.plugin.tsbuildinfo",
+    "allowImportingTsExtensions": false,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist/plugin",
+    "rootDir": "./src/plugin"
+  },
+  "include": [
+    "src/plugin/reinspectAutoDiscoverPlugin.ts",
+    "src/plugin/reinspectNextPlugin.ts",
+    "src/plugin/reinspectNextAutoDiscoverLoader.ts"
+  ]
+}

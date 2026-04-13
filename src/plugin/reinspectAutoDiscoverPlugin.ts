@@ -3,9 +3,10 @@ import { parse } from '@babel/parser'
 import { generate } from '@babel/generator'
 import * as t from '@babel/types'
 import type { Plugin } from 'vite'
-import type { AutoDiscoverScope } from './src/reinspect/types'
 
-const AUTO_WRAP_IMPORT_SOURCE = '/src/reinspect/autoWrap'
+type AutoDiscoverScope = 'first-party' | 'third-party'
+
+const AUTO_WRAP_IMPORT_SOURCE = 'react-reinspect'
 const AUTO_WRAP_IMPORT_NAME = 'autoWrapInspectable'
 const DEFAULT_EXPORT_LOCAL_IDENTIFIER = '__reinspect_default_component'
 const SUPPORTED_FILE_PATTERN = /\.[cm]?[jt]sx?$/
@@ -67,11 +68,11 @@ function unwrapExpression(node: t.Expression): t.Expression {
   return currentNode
 }
 
-function isMemoForwardRefCall(node: t.CallExpression): boolean {
+function isReactCreateElementCall(node: t.CallExpression): boolean {
   const callee = unwrapExpression(node.callee as t.Expression)
 
   if (t.isIdentifier(callee)) {
-    return callee.name === 'memo' || callee.name === 'forwardRef'
+    return callee.name === 'createElement'
   }
 
   if (
@@ -80,10 +81,113 @@ function isMemoForwardRefCall(node: t.CallExpression): boolean {
     callee.object.name === 'React' &&
     t.isIdentifier(callee.property)
   ) {
-    return callee.property.name === 'memo' || callee.property.name === 'forwardRef'
+    return callee.property.name === 'createElement'
   }
 
   return false
+}
+
+function isAstNode(value: unknown): value is t.Node {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'type' in value &&
+    typeof (value as { type: unknown }).type === 'string'
+  )
+}
+
+function containsRenderableReactNode(node: t.Node | null | undefined): boolean {
+  if (!node) {
+    return false
+  }
+
+  if (t.isJSXElement(node) || t.isJSXFragment(node)) {
+    return true
+  }
+
+  if (t.isCallExpression(node) && isReactCreateElementCall(node)) {
+    return true
+  }
+
+  for (const fieldValue of Object.values(node)) {
+    if (Array.isArray(fieldValue)) {
+      for (const value of fieldValue) {
+        if (isAstNode(value) && containsRenderableReactNode(value)) {
+          return true
+        }
+      }
+      continue
+    }
+
+    if (isAstNode(fieldValue) && containsRenderableReactNode(fieldValue)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function isComponentFunction(
+  node: t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression,
+): boolean {
+  if (t.isBlockStatement(node.body)) {
+    return containsRenderableReactNode(node.body)
+  }
+
+  return containsRenderableReactNode(node.body)
+}
+
+function isMemoForwardRefCallee(callee: t.Expression): boolean {
+  const expression = unwrapExpression(callee)
+
+  if (t.isIdentifier(expression)) {
+    return expression.name === 'memo' || expression.name === 'forwardRef'
+  }
+
+  if (
+    t.isMemberExpression(expression) &&
+    t.isIdentifier(expression.object) &&
+    expression.object.name === 'React' &&
+    t.isIdentifier(expression.property)
+  ) {
+    return (
+      expression.property.name === 'memo' ||
+      expression.property.name === 'forwardRef'
+    )
+  }
+
+  return false
+}
+
+function isMemoForwardRefCall(node: t.CallExpression): boolean {
+  const callee = unwrapExpression(node.callee as t.Expression)
+
+  if (!isMemoForwardRefCallee(callee)) {
+    return false
+  }
+
+  if (node.arguments.length === 0) {
+    return false
+  }
+
+  const firstArgument = node.arguments[0]
+  if (!t.isExpression(firstArgument)) {
+    return false
+  }
+
+  const componentCandidate = unwrapExpression(firstArgument)
+  if (
+    t.isArrowFunctionExpression(componentCandidate) ||
+    t.isFunctionExpression(componentCandidate)
+  ) {
+    return isComponentFunction(componentCandidate)
+  }
+
+  if (t.isIdentifier(componentCandidate)) {
+    return isPascalCaseIdentifier(componentCandidate.name)
+  }
+
+  return true
 }
 
 function isWrappedInitializer(node: t.Expression): boolean {
@@ -103,7 +207,7 @@ function isComponentInitializer(node: t.Expression): boolean {
   const expression = unwrapExpression(node)
 
   if (t.isArrowFunctionExpression(expression) || t.isFunctionExpression(expression)) {
-    return true
+    return isComponentFunction(expression)
   }
 
   if (t.isCallExpression(expression)) {
@@ -226,7 +330,10 @@ export function transformModuleForAutoDiscover(
     const statement = program.body[index]
 
     if (t.isFunctionDeclaration(statement) && statement.id) {
-      if (isPascalCaseIdentifier(statement.id.name)) {
+      if (
+        isPascalCaseIdentifier(statement.id.name) &&
+        isComponentFunction(statement)
+      ) {
         program.body.splice(
           index + 1,
           0,
@@ -243,7 +350,8 @@ export function transformModuleForAutoDiscover(
       statement.declaration &&
       t.isFunctionDeclaration(statement.declaration) &&
       statement.declaration.id &&
-      isPascalCaseIdentifier(statement.declaration.id.name)
+      isPascalCaseIdentifier(statement.declaration.id.name) &&
+      isComponentFunction(statement.declaration)
     ) {
       program.body.splice(
         index + 1,
@@ -318,7 +426,11 @@ export function transformModuleForAutoDiscover(
     const declaration = statement.declaration
 
     if (t.isFunctionDeclaration(declaration)) {
-      if (declaration.id && isPascalCaseIdentifier(declaration.id.name)) {
+      if (
+        declaration.id &&
+        isPascalCaseIdentifier(declaration.id.name) &&
+        isComponentFunction(declaration)
+      ) {
         const localName = declaration.id.name
         const replacementStatements: Array<t.Statement | t.ModuleDeclaration> = [
           declaration,
@@ -332,7 +444,7 @@ export function transformModuleForAutoDiscover(
         continue
       }
 
-      if (!declaration.id) {
+      if (!declaration.id && isComponentFunction(declaration)) {
         const localIdentifier = t.identifier(DEFAULT_EXPORT_LOCAL_IDENTIFIER)
         const wrappedValue = createAutoWrapCall(
           functionDeclarationToExpression(declaration),
@@ -437,6 +549,10 @@ export function reinspectAutoDiscoverPlugin(): Plugin {
       const normalizedId = normalizeModuleId(id)
 
       if (!isSupportedSourceFile(normalizedId)) {
+        return null
+      }
+
+      if (normalizedId.includes('/node_modules/react-reinspect/')) {
         return null
       }
 

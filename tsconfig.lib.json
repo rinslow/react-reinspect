@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.lib.tsbuildinfo",
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": true,
+    "outDir": "./dist/lib",
+    "rootDir": "./src/reinspect",
+    "types": ["react", "react-dom", "vite/client"]
+  },
+  "include": ["src/reinspect/**/*.ts", "src/reinspect/**/*.tsx"],
+  "exclude": ["src/reinspect/**/*.test.ts", "src/reinspect/**/*.test.tsx"]
+}

@@ -1,0 +1,129 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildDetectedPropsRows,
+  isEditablePropValue,
+  parseEditablePropValueInput,
+  parsePropsOverridesInput,
+  REINSPECT_PLACEHOLDER_KEY,
+  serializePropsForRawEditor,
+  serializeValueForJson,
+} from './propsInspector'
+
+describe('propsInspector', () => {
+  it('builds shallow detected rows from effective props', () => {
+    const rows = buildDetectedPropsRows({
+      first: 'a',
+      second: 2,
+      third: true,
+    })
+
+    expect(rows.map((row) => row.key)).toEqual(['first', 'second', 'third'])
+    expect(rows[0].value.summary).toBe('"a"')
+    expect(rows[1].value.summary).toBe('2')
+    expect(rows[2].value.summary).toBe('true')
+  })
+
+  it('serializes non-JSON values to placeholders for raw editor prefill', () => {
+    const value = {
+      title: 'hello',
+      onClick: () => undefined,
+      nested: {
+        token: Symbol('x'),
+      },
+    }
+
+    const raw = serializePropsForRawEditor(value)
+    expect(raw).toContain(REINSPECT_PLACEHOLDER_KEY)
+    expect(raw).toContain('function')
+    expect(raw).toContain('symbol')
+  })
+
+  it('strips placeholder-marked values when parsing raw overrides', () => {
+    const { parsed, error } = parsePropsOverridesInput(`{
+      "title": "next",
+      "onClick": {
+        "__reinspect_placeholder__": "function",
+        "display": "[Function onClick]"
+      },
+      "settings": {
+        "theme": "light",
+        "afterSave": {
+          "__reinspect_placeholder__": "function",
+          "display": "[Function afterSave]"
+        }
+      }
+    }`)
+
+    expect(error).toBeNull()
+    expect(parsed).toEqual({
+      title: 'next',
+      settings: {
+        theme: 'light',
+      },
+    })
+  })
+
+  it('skips array branches that still contain placeholder values', () => {
+    const { parsed, error } = parsePropsOverridesInput(`{
+      "items": [1, {
+        "__reinspect_placeholder__": "symbol",
+        "display": "Symbol(id)"
+      }],
+      "count": 2
+    }`)
+
+    expect(error).toBeNull()
+    expect(parsed).toEqual({
+      count: 2,
+    })
+  })
+
+  it('returns parse error for non-object raw payloads', () => {
+    const { parsed, error } = parsePropsOverridesInput('["x"]')
+    expect(parsed).toBeNull()
+    expect(error).toContain('must be an object')
+  })
+
+  it('serializes a single value to json for lazy preview/edit', () => {
+    const json = serializeValueForJson({
+      theme: 'dark',
+      size: 2,
+    })
+
+    expect(json).toContain('"theme": "dark"')
+    expect(json).toContain('"size": 2')
+  })
+
+  it('marks only primitives, arrays and plain objects as editable', () => {
+    expect(isEditablePropValue('x')).toBe(true)
+    expect(isEditablePropValue(1)).toBe(true)
+    expect(isEditablePropValue(false)).toBe(true)
+    expect(isEditablePropValue(null)).toBe(true)
+    expect(isEditablePropValue([1, 2, 3])).toBe(true)
+    expect(isEditablePropValue({ value: 1 })).toBe(true)
+
+    expect(isEditablePropValue(() => undefined)).toBe(false)
+    expect(isEditablePropValue(Symbol('x'))).toBe(false)
+    expect(isEditablePropValue(new Date())).toBe(false)
+    expect(isEditablePropValue(undefined)).toBe(false)
+  })
+
+  it('parses editable prop value input', () => {
+    expect(parseEditablePropValueInput('"hello"')).toEqual({
+      parsed: 'hello',
+      error: null,
+    })
+    expect(parseEditablePropValueInput('[1,2]')).toEqual({
+      parsed: [1, 2],
+      error: null,
+    })
+    expect(parseEditablePropValueInput('{"a":1}')).toEqual({
+      parsed: { a: 1 },
+      error: null,
+    })
+
+    const invalid = parseEditablePropValueInput('')
+    expect(invalid.parsed).toBeNull()
+    expect(invalid.error).toContain('cannot be empty')
+  })
+})

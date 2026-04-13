@@ -3,8 +3,6 @@ import {
   DEFAULT_EDITABLE_PROPS,
   ReinspectProvider,
   type ReinspectConfig,
-  withReinspect,
-  wrapInspectableMap,
 } from './reinspect'
 import { TodoAddForm } from './components/TodoAddForm'
 import { TodoFilterBar } from './components/TodoFilterBar'
@@ -18,26 +16,12 @@ const reinspectConfig: ReinspectConfig = {
   enabled: import.meta.env.DEV,
   startActive: true,
   showFloatingToggle: true,
+  inspectMode: 'first-party',
   editableProps: DEFAULT_EDITABLE_PROPS,
   palette: ['#0369a1', '#ea580c', '#15803d', '#be123c', '#4338ca', '#0f766e'],
   zIndexBase: 2147483000,
 }
 
-const InspectableTodoHeader = withReinspect(TodoHeader, {
-  name: 'TodoHeader',
-})
-const InspectableTodoListContainer = withReinspect(TodoListContainer, {
-  name: 'TodoListContainer',
-})
-const InspectableTodoItemRow = withReinspect(TodoItemRow, {
-  name: 'TodoItemRow',
-})
-
-const { TodoAddForm: InspectableTodoAddForm, TodoFilterBar: InspectableTodoFilterBar } =
-  wrapInspectableMap({
-    TodoAddForm,
-    TodoFilterBar,
-  })
 
 function createTodoId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -106,30 +90,30 @@ function App() {
     <ReinspectProvider config={reinspectConfig}>
       <main className="todo-page">
         <section className="todo-panel">
-          <InspectableTodoHeader total={counts.all} completed={counts.completed} />
+          <TodoHeader total={counts.all} completed={counts.completed} />
 
           <div className="todo-controls">
-            <InspectableTodoAddForm onAdd={addTodo} />
-            <InspectableTodoFilterBar
+            <TodoAddForm onAdd={addTodo} />
+            <TodoFilterBar
               filter={filter}
               counts={counts}
               onFilterChange={setFilter}
             />
           </div>
 
-          <InspectableTodoListContainer
+          <TodoListContainer
             visibleCount={visibleTodos.length}
             emptyLabel={`No ${filter} tasks right now.`}
           >
             {visibleTodos.map((todo) => (
-              <InspectableTodoItemRow
+              <TodoItemRow
                 key={todo.id}
                 todo={todo}
                 onToggle={toggleTodo}
                 onDelete={deleteTodo}
               />
             ))}
-          </InspectableTodoListContainer>
+          </TodoListContainer>
         </section>
       </main>
     </ReinspectProvider>

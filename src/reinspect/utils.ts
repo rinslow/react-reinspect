@@ -1,15 +1,96 @@
 import type {
   ComponentStyleOverrides,
   EditableStyleProp,
+  InspectMode,
+  RenderCaptureMode,
   ReinspectConfig,
   ResolvedReinspectConfig,
 } from './types'
 import { DEFAULT_EDITABLE_PROPS, DEFAULT_PALETTE } from './constants'
 
 const FALLBACK_Z_INDEX = 2147483000
+export const REINSPECT_INSPECT_MODE_STORAGE_KEY = 'reinspect.inspectMode'
+
+const VALID_INSPECT_MODES: InspectMode[] = ['wrapped', 'first-party', 'all']
+const VALID_RENDER_CAPTURE_MODES: RenderCaptureMode[] = [
+  'attempts',
+  'commits',
+  'both',
+]
 
 function resolveDefaultEnabled(): boolean {
   return Boolean(import.meta.env?.DEV)
+}
+
+export function isInspectMode(value: unknown): value is InspectMode {
+  return (
+    typeof value === 'string' &&
+    VALID_INSPECT_MODES.includes(value as InspectMode)
+  )
+}
+
+export function isRenderCaptureMode(
+  value: unknown,
+): value is RenderCaptureMode {
+  return (
+    typeof value === 'string' &&
+    VALID_RENDER_CAPTURE_MODES.includes(value as RenderCaptureMode)
+  )
+}
+
+function readStoredInspectMode(): InspectMode | undefined {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  try {
+    const storedValue = window.sessionStorage.getItem(
+      REINSPECT_INSPECT_MODE_STORAGE_KEY,
+    )
+
+    return isInspectMode(storedValue) ? storedValue : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function resolveInspectMode(
+  configInspectMode: InspectMode | undefined,
+): InspectMode {
+  const storedInspectMode = readStoredInspectMode()
+  if (storedInspectMode) {
+    return storedInspectMode
+  }
+
+  if (isInspectMode(configInspectMode)) {
+    return configInspectMode
+  }
+
+  return 'wrapped'
+}
+
+export function persistInspectMode(mode: InspectMode): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(REINSPECT_INSPECT_MODE_STORAGE_KEY, mode)
+  } catch {
+    // Best-effort persistence only.
+  }
+}
+
+export function reloadWindow(): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.location.reload()
+  } catch {
+    // jsdom and restricted runtimes may block reload.
+  }
 }
 
 export function resolveReinspectConfig(
@@ -29,9 +110,15 @@ export function resolveReinspectConfig(
     enabled,
     startActive: config.startActive ?? true,
     showFloatingToggle: config.showFloatingToggle ?? enabled,
+    inspectMode: resolveInspectMode(config.inspectMode),
     editableProps,
     palette,
     zIndexBase: config.zIndexBase ?? FALLBACK_Z_INDEX,
+    shouldCountRenders: config.shouldCountRenders ?? false,
+    countRendersForComponents: config.countRendersForComponents ?? [],
+    renderCaptureMode: isRenderCaptureMode(config.renderCaptureMode)
+      ? config.renderCaptureMode
+      : 'attempts',
   }
 }
 

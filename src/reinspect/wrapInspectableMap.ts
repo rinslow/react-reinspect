@@ -20,10 +20,7 @@ export function wrapInspectableMap<T extends ComponentMap>(
     const optionsForComponent =
       typeof options === 'function' ? options(key, Component) : options?.[key]
 
-    wrappedMap[key] = withReinspect(Component, {
-      name: String(key),
-      ...optionsForComponent,
-    }) as T[typeof key]
+    wrappedMap[key] = withReinspect(Component, optionsForComponent) as T[typeof key]
   }
 
   return wrappedMap

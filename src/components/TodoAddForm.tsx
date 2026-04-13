@@ -29,7 +29,6 @@ export function TodoAddForm({ onAdd }: TodoAddFormProps) {
         type="text"
         value={draft}
         onChange={(event) => setDraft(event.currentTarget.value)}
-        placeholder="Ship reinspect panel"
       />
       <button type="submit">Add</button>
     </form>

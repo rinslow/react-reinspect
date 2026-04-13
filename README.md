@@ -100,7 +100,7 @@ You are a senior React code agent, your task is to integrate react-reinspect to 
 
 Do all of the following in one pass:
 1) Install `react-reinspect` using this repo's package manager.
-2) Turn it on in dev mode ONLY by wiring `ReinspectProvider` at app root.
+2) Turn it on in dev mode ONLY by wiring `ReinspectProvider` at app root (on CLIENT SIDE only, not server-rendered!).
    - Vite: use `enabled: import.meta.env.DEV`
    - Next.js: use `enabled: process.env.NODE_ENV !== 'production'`
    - Next App Router: mount a client `Providers` component from `app/layout.tsx`

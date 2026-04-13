@@ -7,6 +7,7 @@ export interface ReinspectNextPluginOptions {
 
 interface NextWebpackOptions {
   dev: boolean
+  isServer?: boolean
 }
 
 interface NextWebpackUseEntry {
@@ -122,7 +123,8 @@ export function withReinspectAutoDiscover(
           : config
 
       const shouldEnable =
-        options.dev || Boolean(pluginOptions.enableInProduction)
+        (options.dev || Boolean(pluginOptions.enableInProduction)) &&
+        !Boolean(options.isServer)
 
       if (!shouldEnable) {
         return resolvedConfig

@@ -2,7 +2,7 @@ import path from 'node:path'
 import {
   shouldSkipThirdPartyModule,
   transformModuleForAutoDiscover,
-} from './reinspectAutoDiscoverPlugin'
+} from './reinspectAutoDiscoverPlugin.js'
 
 type AutoDiscoverScope = 'first-party' | 'third-party'
 

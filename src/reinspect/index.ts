@@ -1,3 +1,5 @@
+'use client'
+
 import './reinspect.css'
 import reinspectStyles from './reinspect.css?inline'
 import { injectReinspectStyles } from './injectStyles'

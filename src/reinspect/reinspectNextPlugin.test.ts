@@ -13,6 +13,16 @@ describe('withReinspectAutoDiscover', () => {
     expect(webpackConfig?.module?.rules?.length).toBe(1)
   })
 
+  it('does not inject loader rule for server webpack builds', () => {
+    const wrappedConfig = withReinspectAutoDiscover({})
+    const webpackConfig = wrappedConfig.webpack?.(
+      { module: { rules: [] } },
+      { dev: true, isServer: true },
+    )
+
+    expect(webpackConfig?.module?.rules?.length).toBe(0)
+  })
+
   it('does not inject loader rule in production by default', () => {
     const wrappedConfig = withReinspectAutoDiscover({})
     const webpackConfig = wrappedConfig.webpack?.(

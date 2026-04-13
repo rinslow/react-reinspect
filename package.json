@@ -1,6 +1,6 @@
 {
   "name": "react-reinspect",
-  "version": "0.1.3",
+  "version": "0.1.7",
   "description": "Visual runtime inspector for React components with render counters and style overrides.",
   "keywords": [
     "react",

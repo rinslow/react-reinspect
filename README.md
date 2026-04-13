@@ -56,9 +56,43 @@ Peer dependencies:
 ![screen shot example showing react-reinspect](docs/assets/screenshot-example.png)
 
 
-## Quick Start (2 Minutes)
+## Agentic Quick Start
 
+Use this prompt on your favorite AI coding agent.
 
+```text
+You are a senior React code agent, your task is to integrate react-reinspect to this project. react-reinspect is a frontend utility that helps developers see the outline of react components and edit their props at runtime within their browser. it is not intended for production use at all. 
+
+Do all of the following in one pass:
+1) Install `react-reinspect` using this repo's package manager.
+2) Turn it on in dev mode ONLY by wiring `ReinspectProvider` at app root.
+3) Keep production safe (e.g.: `enabled: import.meta.env.DEV` or however we manage dev/prod in this repo.).
+4) Run validation (build/tests if available) and fix any issues.
+5) Output a concise summary with changed files and how to use it.
+
+Use this example as the baseline:
+
+import { ReinspectProvider, type ReinspectConfig } from 'react-reinspect'
+
+const reinspectConfig: ReinspectConfig = {
+  enabled: import.meta.env.DEV,
+  // startActive: true,
+  // showFloatingToggle: true,
+  // inspectMode: 'wrapped',
+}
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+  return <ReinspectProvider config={reinspectConfig}>{children}</ReinspectProvider>
+}
+
+Output format I want from you:
+- What changed (bullet list)
+- Why this is safe in production
+- How to run it locally
+- 1 copy-paste PR title + PR description
+```
+
+## Manual Quick Start
 ### 1) Wrap your app with `ReinspectProvider`
 
 ```tsx

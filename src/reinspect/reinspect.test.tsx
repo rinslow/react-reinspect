@@ -1075,7 +1075,7 @@ describe('Reinspect', () => {
     expect(screen.getByText('theme: light')).toBeInTheDocument()
   })
 
-  it('prefills raw json placeholders and skips placeholder overrides on apply', async () => {
+  it('prefills raw json without non-serializable props in distilled mode', async () => {
     const user = userEvent.setup()
 
     const Wrapped = withReinspect(function PlaceholderCard({
@@ -1097,9 +1097,10 @@ describe('Reinspect', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Raw' }))
 
     const textarea = within(dialog).getByLabelText('Props JSON')
-    expect((textarea as HTMLTextAreaElement).value).toContain(
+    expect((textarea as HTMLTextAreaElement).value).not.toContain(
       '__reinspect_placeholder__',
     )
+    expect((textarea as HTMLTextAreaElement).value).not.toContain('"onPing"')
 
     await user.click(within(dialog).getByRole('button', { name: 'apply' }))
 

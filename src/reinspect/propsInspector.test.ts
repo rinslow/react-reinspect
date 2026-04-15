@@ -4,6 +4,7 @@ import {
   isEditablePropValue,
   parseEditablePropValueInput,
   parsePropsOverridesInput,
+  REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY,
   REINSPECT_PLACEHOLDER_KEY,
   serializePropsForRawEditor,
   serializeValueForJson,
@@ -33,9 +34,31 @@ describe('propsInspector', () => {
     }
 
     const raw = serializePropsForRawEditor(value)
-    expect(raw).toContain(REINSPECT_PLACEHOLDER_KEY)
-    expect(raw).toContain('function')
-    expect(raw).toContain('symbol')
+    expect(raw).toContain('"title": "hello"')
+    expect(raw).toContain('"nested": {}')
+    expect(raw).not.toContain('"onClick"')
+    expect(raw).not.toContain('"token"')
+    expect(raw).not.toContain(REINSPECT_PLACEHOLDER_KEY)
+    expect(raw).not.toContain('"display":')
+    expect(raw).not.toContain(REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY)
+  })
+
+  it('includes placeholder display name only in complete mode', () => {
+    const distilled = serializePropsForRawEditor({
+      onClick: () => undefined,
+    })
+    expect(distilled).not.toContain(REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY)
+    expect(distilled).not.toContain('"display":')
+
+    const complete = serializePropsForRawEditor(
+      {
+        onClick: () => undefined,
+      },
+      { mode: 'complete' },
+    )
+    expect(complete).toContain(REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY)
+    expect(complete).not.toContain(REINSPECT_PLACEHOLDER_KEY)
+    expect(complete).not.toContain('"display":')
   })
 
   it('strips placeholder-marked values when parsing raw overrides', () => {
@@ -69,6 +92,20 @@ describe('propsInspector', () => {
         "__reinspect_placeholder__": "symbol",
         "display": "Symbol(id)"
       }],
+      "count": 2
+    }`)
+
+    expect(error).toBeNull()
+    expect(parsed).toEqual({
+      count: 2,
+    })
+  })
+
+  it('strips placeholder-marked values with namespaced display key', () => {
+    const { parsed, error } = parsePropsOverridesInput(`{
+      "onClick": {
+        "__reinspect__displayName__": "[Function onClick]"
+      },
       "count": 2
     }`)
 

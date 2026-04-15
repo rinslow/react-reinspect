@@ -5,6 +5,10 @@ const MAX_SERIALIZE_OBJECT_KEYS = 40
 const MAX_SERIALIZE_ARRAY_ITEMS = 40
 
 export const REINSPECT_PLACEHOLDER_KEY = '__reinspect_placeholder__'
+export const REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY =
+  '__reinspect__displayName__'
+
+const LEGACY_REINSPECT_PLACEHOLDER_DISPLAY_KEY = 'display'
 
 type PlaceholderKind =
   | 'function'
@@ -19,8 +23,9 @@ type PlaceholderKind =
   | 'unsupported'
 
 interface PlaceholderValue {
-  [REINSPECT_PLACEHOLDER_KEY]: PlaceholderKind
-  display: string
+  [REINSPECT_PLACEHOLDER_KEY]?: PlaceholderKind
+  [REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY]?: string
+  [LEGACY_REINSPECT_PLACEHOLDER_DISPLAY_KEY]?: string
 }
 
 export type InspectedValueKind =
@@ -61,6 +66,8 @@ interface SerializationOptions {
   mode?: PropsSerializationMode
 }
 
+const OMIT_SERIALIZATION = Symbol('reinspect.omitSerialization')
+
 const REACT_ELEMENT_INTERNAL_KEYS = new Set([
   '$$typeof',
   '_owner',
@@ -70,12 +77,11 @@ const REACT_ELEMENT_INTERNAL_KEYS = new Set([
 ])
 
 function buildPlaceholder(
-  kind: PlaceholderKind,
-  display: string,
+  _kind: PlaceholderKind,
+  displayName: string,
 ): PlaceholderValue {
   return {
-    [REINSPECT_PLACEHOLDER_KEY]: kind,
-    display,
+    [REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY]: displayName,
   }
 }
 
@@ -93,11 +99,26 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isPlaceholderObject(value: unknown): value is PlaceholderValue {
-  return (
-    isRecord(value) &&
-    typeof value[REINSPECT_PLACEHOLDER_KEY] === 'string' &&
-    typeof value.display === 'string'
-  )
+  if (!isRecord(value)) {
+    return false
+  }
+
+  const placeholderKind = value[REINSPECT_PLACEHOLDER_KEY]
+  if (placeholderKind !== undefined && typeof placeholderKind !== 'string') {
+    return false
+  }
+
+  const displayName = value[REINSPECT_PLACEHOLDER_DISPLAY_NAME_KEY]
+  if (displayName !== undefined && typeof displayName !== 'string') {
+    return false
+  }
+
+  const legacyDisplayName = value[LEGACY_REINSPECT_PLACEHOLDER_DISPLAY_KEY]
+  if (legacyDisplayName !== undefined && typeof legacyDisplayName !== 'string') {
+    return false
+  }
+
+  return typeof placeholderKind === 'string' || typeof displayName === 'string'
 }
 
 function stringifyJson(value: unknown): string | null {
@@ -157,9 +178,14 @@ function toJsonSerializable(
   stack: WeakSet<object>,
   depth: number,
   mode: PropsSerializationMode,
-): unknown {
+): unknown | typeof OMIT_SERIALIZATION {
+  const placeholder = (kind: PlaceholderKind, displayName: string) =>
+    mode === 'complete'
+      ? buildPlaceholder(kind, displayName)
+      : OMIT_SERIALIZATION
+
   if (depth > MAX_SERIALIZE_DEPTH) {
-    return buildPlaceholder('truncated', '[Max depth reached]')
+    return placeholder('truncated', '[Max depth reached]')
   }
 
   if (value === null) {
@@ -175,41 +201,41 @@ function toJsonSerializable(
   if (valueType === 'number') {
     return Number.isFinite(value as number)
       ? value
-      : buildPlaceholder('non-finite-number', String(value))
+      : placeholder('non-finite-number', String(value))
   }
 
   if (valueType === 'undefined') {
-    return buildPlaceholder('undefined', 'undefined')
+    return placeholder('undefined', 'undefined')
   }
 
   if (valueType === 'bigint') {
-    return buildPlaceholder('bigint', `${String(value)}n`)
+    return placeholder('bigint', `${String(value)}n`)
   }
 
   if (valueType === 'symbol') {
-    return buildPlaceholder('symbol', String(value))
+    return placeholder('symbol', String(value))
   }
 
   if (valueType === 'function') {
     const fn = value as (...args: unknown[]) => unknown
-    return buildPlaceholder('function', `[Function ${fn.name || 'anonymous'}]`)
+    return placeholder('function', `[Function ${fn.name || 'anonymous'}]`)
   }
 
   if (value instanceof Date) {
-    return buildPlaceholder(
+    return placeholder(
       'date',
       Number.isNaN(value.getTime()) ? 'Invalid Date' : value.toISOString(),
     )
   }
 
   if (value instanceof RegExp) {
-    return buildPlaceholder('regexp', value.toString())
+    return placeholder('regexp', value.toString())
   }
 
   if (valueType === 'object') {
     const objectValue = value as object
     if (stack.has(objectValue)) {
-      return buildPlaceholder('circular', '[Circular]')
+      return placeholder('circular', '[Circular]')
     }
 
     stack.add(objectValue)
@@ -219,18 +245,22 @@ function toJsonSerializable(
       const maxItems = Math.min(value.length, MAX_SERIALIZE_ARRAY_ITEMS)
 
       for (let index = 0; index < maxItems; index += 1) {
-        serializedArray.push(
-          toJsonSerializable(value[index], stack, depth + 1, mode),
-        )
+        const serializedItem = toJsonSerializable(value[index], stack, depth + 1, mode)
+        if (serializedItem === OMIT_SERIALIZATION) {
+          continue
+        }
+
+        serializedArray.push(serializedItem)
       }
 
       if (value.length > MAX_SERIALIZE_ARRAY_ITEMS) {
-        serializedArray.push(
-          buildPlaceholder(
-            'truncated',
-            `${value.length - MAX_SERIALIZE_ARRAY_ITEMS} more items`,
-          ),
+        const truncatedPlaceholder = placeholder(
+          'truncated',
+          `${value.length - MAX_SERIALIZE_ARRAY_ITEMS} more items`,
         )
+        if (truncatedPlaceholder !== OMIT_SERIALIZATION) {
+          serializedArray.push(truncatedPlaceholder)
+        }
       }
 
       stack.delete(objectValue)
@@ -251,26 +281,34 @@ function toJsonSerializable(
       }
 
       const [key, nestedValue] = entry
-      serializedObject[key] = toJsonSerializable(
+      const serializedNested = toJsonSerializable(
         nestedValue,
         stack,
         depth + 1,
         mode,
       )
+      if (serializedNested === OMIT_SERIALIZATION) {
+        continue
+      }
+
+      serializedObject[key] = serializedNested
     }
 
     if (entries.length > MAX_SERIALIZE_OBJECT_KEYS) {
-      serializedObject.__reinspect_truncated__ = buildPlaceholder(
+      const truncatedPlaceholder = placeholder(
         'truncated',
         `${entries.length - MAX_SERIALIZE_OBJECT_KEYS} more keys`,
       )
+      if (truncatedPlaceholder !== OMIT_SERIALIZATION) {
+        serializedObject.__reinspect_truncated__ = truncatedPlaceholder
+      }
     }
 
     stack.delete(objectValue)
     return serializedObject
   }
 
-  return buildPlaceholder('unsupported', '[Unsupported value]')
+  return placeholder('unsupported', '[Unsupported value]')
 }
 
 function describeValueShallow(value: unknown): InspectedValueDescriptor {
@@ -447,6 +485,10 @@ export function serializePropsForRawEditor(
     0,
     resolveSerializationMode(options),
   )
+  if (serialized === OMIT_SERIALIZATION) {
+    return '{}'
+  }
+
   return stringifyJson(serialized) ?? '{}'
 }
 
@@ -454,13 +496,18 @@ export function serializeValueForJson(
   value: unknown,
   options?: SerializationOptions,
 ): string | null {
+  const serialized = toJsonSerializable(
+    value,
+    new WeakSet<object>(),
+    0,
+    resolveSerializationMode(options),
+  )
+  if (serialized === OMIT_SERIALIZATION) {
+    return null
+  }
+
   return stringifyJson(
-    toJsonSerializable(
-      value,
-      new WeakSet<object>(),
-      0,
-      resolveSerializationMode(options),
-    ),
+    serialized,
   )
 }
 

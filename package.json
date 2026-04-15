@@ -1,9 +1,29 @@
 {
   "name": "react-reinspect",
-  "version": "0.1.8",
-  "description": "Visual runtime inspector for React components with render counters and style overrides.",
+  "version": "0.1.9",
+  "description": "Visual runtime inspector for React components.",
+  "homepage": "https://github.com/rinslow/react-reinspect",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rinslow/react-reinspect.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rinslow/react-reinspect/issues"
+  },
+  "author": {
+    "name": "Dan Elkis",
+    "url": "https://github.com/rinslow"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "keywords": [
     "react",
+    "component",
+    "inspect",
+    "ui",
+    "ai",
     "debug",
     "devtools",
     "inspector"

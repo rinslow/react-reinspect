@@ -11,7 +11,7 @@ Inspect and tweak React components live, directly in your running app.
 - Inspect and override props without changing source.
 - Track rerenders while you interact with the real screen.
 
-![react-reinspect runtime inspector example](https://cdn.jsdelivr.net/npm/react-reinspect@latest/docs/assets/reinspect-showcase-demo-app.webm)
+![react-reinspect runtime inspector example](https://github.com/rinslow/react-reinspect/raw/refs/heads/main/docs/assets/reinspect-showcase-demo-app.mp4)
 
 ## Install
 

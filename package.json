@@ -1,6 +1,6 @@
 {
   "name": "react-reinspect",
-  "version": "0.1.9",
+  "version": "0.2.1",
   "description": "Visual runtime inspector for React components.",
   "homepage": "https://github.com/rinslow/react-reinspect",
   "repository": {
@@ -15,12 +15,7 @@
     "url": "https://github.com/rinslow"
   },
   "publishConfig": {
-<<<<<<< HEAD
     "access": "public"
-=======
-    "access": "public",
-    "provenance": true
->>>>>>> eafd8f2c59cfc872b3426c13aa168f0aea45fc02
   },
   "keywords": [
     "react",

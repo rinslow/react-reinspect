@@ -21,7 +21,7 @@ import {
 import { ReinspectContext } from './context'
 import {
   buildInlineStyleOverrides,
-  normalizeHexColor,
+  resolveColorInputValue,
   parseNumberInput,
 } from '../utils'
 import {
@@ -34,6 +34,7 @@ import {
 } from '../propsInspector'
 import type {
   AutoDiscoverScope,
+  EditableStyleProp,
   InspectMode,
   RenderCounterMode,
   StyleOverrideValue,
@@ -81,6 +82,7 @@ const FALLBACK_CONFIG = {
   renderCounters: 'off' as const,
   countRendersForComponents: [] as const,
   propsSerializationMode: 'distilled' as const,
+  menuTheme: 'light' as const,
 }
 
 let instanceSequence = 0
@@ -111,6 +113,43 @@ function hasValue(value: StyleOverrideValue | undefined): boolean {
 
 function toDataTestIdSegment(input: string): string {
   return input.replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function toCssPropertyName(prop: string): string {
+  return prop.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`)
+}
+
+function isTransparentColorValue(value: string | undefined): boolean {
+  if (!value) {
+    return true
+  }
+
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'transparent') {
+    return true
+  }
+
+  const rgbaMatch = normalized.match(/^rgba?\((.+)\)$/i)
+  if (!rgbaMatch) {
+    return false
+  }
+
+  const innerValue = rgbaMatch[1].replace(/\//g, ' ')
+  const parts = innerValue.split(/[,\s]+/).filter((part) => part.length > 0)
+  if (parts.length < 4) {
+    return false
+  }
+
+  const alphaToken = parts[3]
+  if (!alphaToken) {
+    return false
+  }
+
+  const alphaValue = alphaToken.endsWith('%')
+    ? Number(alphaToken.slice(0, -1)) / 100
+    : Number(alphaToken)
+
+  return Number.isFinite(alphaValue) && alphaValue <= 0
 }
 
 function clampMenuPosition(
@@ -281,6 +320,9 @@ export function withReinspectInternal<P extends object>(
     const [editingPropKey, setEditingPropKey] = useState<string | null>(null)
     const [editingDraft, setEditingDraft] = useState('')
     const [editingError, setEditingError] = useState<string | null>(null)
+    const [computedStyleValues, setComputedStyleValues] = useState<
+      Partial<Record<EditableStyleProp, string>>
+    >({})
 
     const reinspectContext = useContext(ReinspectContext)
     const hasReinspectContext = Boolean(reinspectContext)
@@ -288,6 +330,7 @@ export function withReinspectInternal<P extends object>(
     const getColor =
       reinspectContext?.getColor ??
       (() => '#f97316')
+    const menuTheme = reinspectContext?.menuTheme ?? 'light'
     const isActive = reinspectContext?.isActive ?? false
     const inspectMode = reinspectContext?.inspectMode ?? 'wrapped'
     const renderCounterMode =
@@ -485,6 +528,92 @@ export function withReinspectInternal<P extends object>(
       '--reinspect-z-base': config.zIndexBase,
     } as CSSProperties
 
+    const readComputedStyleValues = (
+      event: ReactMouseEvent<HTMLDivElement>,
+    ): Partial<Record<EditableStyleProp, string>> => {
+      if (typeof window === 'undefined') {
+        return {}
+      }
+
+      const shellElement = event.currentTarget
+      const contentElement = shellElement.querySelector('[data-reinspect-content="true"]')
+      const eventTarget = event.target
+      let styleTarget: HTMLElement | null = null
+
+      if (
+        eventTarget instanceof HTMLElement &&
+        contentElement?.contains(eventTarget)
+      ) {
+        styleTarget = eventTarget
+      }
+
+      if (
+        !styleTarget &&
+        contentElement?.firstElementChild instanceof HTMLElement
+      ) {
+        styleTarget = contentElement.firstElementChild
+      }
+
+      if (!styleTarget && contentElement instanceof HTMLElement) {
+        styleTarget = contentElement
+      }
+
+      if (!styleTarget) {
+        return {}
+      }
+
+      const computedStyle = window.getComputedStyle(styleTarget)
+      const nextValues: Partial<Record<EditableStyleProp, string>> = {}
+      const resolveEffectiveBackgroundColor = (): string => {
+        let currentElement: HTMLElement | null = styleTarget
+        while (currentElement) {
+          const backgroundColor = window
+            .getComputedStyle(currentElement)
+            .backgroundColor.trim()
+          if (!isTransparentColorValue(backgroundColor)) {
+            return backgroundColor
+          }
+
+          currentElement = currentElement.parentElement
+        }
+
+        const documentBackground = window
+          .getComputedStyle(document.documentElement)
+          .backgroundColor.trim()
+        if (!isTransparentColorValue(documentBackground)) {
+          return documentBackground
+        }
+
+        return 'rgb(255 255 255)'
+      }
+
+      for (const prop of config.editableProps) {
+        const cssPropertyName = toCssPropertyName(prop)
+        const computedValue =
+          prop === 'backgroundColor'
+            ? resolveEffectiveBackgroundColor()
+            : computedStyle.getPropertyValue(cssPropertyName).trim()
+        if (computedValue.length > 0) {
+          nextValues[prop] = computedValue
+        }
+      }
+
+      return nextValues
+    }
+
+    const parseNumericCssValue = (value: string | undefined): number | undefined => {
+      if (!value) {
+        return undefined
+      }
+
+      const numericMatch = value.trim().match(/-?\d*\.?\d+/)
+      if (!numericMatch?.[0]) {
+        return undefined
+      }
+
+      return parseNumberInput(numericMatch[0])
+    }
+
     const openMenuAtCursor = (event: ReactMouseEvent<HTMLDivElement>) => {
       if (!inspectorActive) {
         return
@@ -503,6 +632,7 @@ export function withReinspectInternal<P extends object>(
       setEditingDraft('')
       setEditingError(null)
       setPropsDraft('{}')
+      setComputedStyleValues(readComputedStyleValues(event))
       setMenuPosition(
         clampMenuPosition(
           {
@@ -659,6 +789,7 @@ export function withReinspectInternal<P extends object>(
       <div
         ref={menuRef}
         className="reinspect-menu"
+        data-reinspect-theme={menuTheme}
         role="dialog"
         aria-label={`${componentName} controls`}
         onMouseDown={(event) => {
@@ -674,6 +805,7 @@ export function withReinspectInternal<P extends object>(
         style={{
           top: `${menuPosition.y}px`,
           left: `${menuPosition.x}px`,
+          ['--reinspect-color' as string]: borderColor,
         }}
       >
         <div className="reinspect-menu-header">
@@ -845,10 +977,12 @@ export function withReinspectInternal<P extends object>(
                 const fieldId = `${instanceId}-${prop}`
 
                 if (COLOR_STYLE_PROPS.has(prop)) {
-                  const colorValue =
+                  const sourceColorValue =
                     typeof rawValue === 'string'
-                      ? normalizeHexColor(rawValue)
-                      : '#1f2937'
+                      ? rawValue
+                      : computedStyleValues[prop]
+                  const colorValue =
+                    resolveColorInputValue(sourceColorValue)
 
                   return (
                     <div className="reinspect-field" key={prop}>
@@ -880,7 +1014,9 @@ export function withReinspectInternal<P extends object>(
 
                 if (prop === OPACITY_STYLE_PROP) {
                   const opacityValue =
-                    typeof rawValue === 'number' ? rawValue : 1
+                    typeof rawValue === 'number'
+                      ? rawValue
+                      : (parseNumericCssValue(computedStyleValues[prop]) ?? 1)
 
                   return (
                     <div className="reinspect-field" key={prop}>
@@ -919,7 +1055,9 @@ export function withReinspectInternal<P extends object>(
 
                 if (NUMERIC_STYLE_PROPS.has(prop)) {
                   const numericValue =
-                    typeof rawValue === 'number' ? rawValue : ''
+                    typeof rawValue === 'number'
+                      ? rawValue
+                      : (parseNumericCssValue(computedStyleValues[prop]) ?? '')
 
                   return (
                     <div className="reinspect-field" key={prop}>
@@ -966,7 +1104,11 @@ export function withReinspectInternal<P extends object>(
                       <input
                         id={fieldId}
                         type="text"
-                        value={typeof rawValue === 'string' ? rawValue : ''}
+                        value={
+                          typeof rawValue === 'string'
+                            ? rawValue
+                            : (computedStyleValues[prop] ?? '')
+                        }
                         onChange={(event) =>
                           updateOverride(
                             instanceId,
@@ -1199,12 +1341,17 @@ export function withReinspectInternal<P extends object>(
       ? createPortal(
           <div
             className="reinspect-modal-backdrop"
+            data-reinspect-theme={menuTheme}
             role="dialog"
             aria-modal="true"
             aria-label={`Edit ${editingPropKey} prop`}
             data-testid="reinspect-prop-edit-modal"
           >
-            <div className="reinspect-modal" ref={editModalRef}>
+            <div
+              className="reinspect-modal"
+              data-reinspect-theme={menuTheme}
+              ref={editModalRef}
+            >
               <p className="reinspect-menu-title">Edit prop: {editingPropKey}</p>
               <label htmlFor={`${instanceId}-prop-edit-json`}>JSON value</label>
               <textarea

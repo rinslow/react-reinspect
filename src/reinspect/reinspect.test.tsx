@@ -294,6 +294,62 @@ describe('Reinspect', () => {
     ).toBe('complete')
   })
 
+  it('defaults menu theme to light and applies theme changes live', async () => {
+    const user = userEvent.setup()
+
+    const ThemeCard = withReinspect(function ThemeCard() {
+      return <p>theme card</p>
+    }, { name: 'ThemeCard' })
+
+    function Probe() {
+      const { menuTheme } = useReinspect()
+      return <output data-testid="menu-theme-probe">{menuTheme}</output>
+    }
+
+    renderWithReinspect(
+      <>
+        <Probe />
+        <ThemeCard />
+      </>,
+      {
+        enabled: true,
+        startActive: true,
+        showFloatingToggle: true,
+      },
+    )
+
+    expect(screen.getByTestId('menu-theme-probe')).toHaveTextContent('light')
+
+    await user.click(screen.getByTestId('reinspect-floating-toggle'))
+    const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+    await user.click(
+      within(settingsMenu).getByTestId('reinspect-settings-tab-settings'),
+    )
+
+    const themeSelect = within(settingsMenu).getByTestId(
+      'reinspect-setting-menu-theme',
+    )
+    expect(themeSelect).toHaveValue('light')
+
+    fireEvent.change(themeSelect, { target: { value: 'dark' } })
+
+    expect(screen.getByTestId('menu-theme-probe')).toHaveTextContent('dark')
+    expect(screen.getByTestId('reinspect-floating-toggle')).toHaveAttribute(
+      'data-reinspect-theme',
+      'dark',
+    )
+    expect(settingsMenu).toHaveAttribute('data-reinspect-theme', 'dark')
+    expect(
+      window.sessionStorage.getItem(reinspectUtils.REINSPECT_MENU_THEME_STORAGE_KEY),
+    ).toBe('dark')
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-ThemeCard'))
+    expect(screen.getByRole('dialog', { name: 'ThemeCard controls' })).toHaveAttribute(
+      'data-reinspect-theme',
+      'dark',
+    )
+  })
+
   it('applies inspect whitelist changes live and persists them for the session', async () => {
     const user = userEvent.setup()
 
@@ -881,6 +937,52 @@ describe('Reinspect', () => {
     const content = shell.querySelector('[data-reinspect-content="true"]') as HTMLElement
 
     expect(content).toHaveStyle({ padding: '24px' })
+  })
+
+  it('initializes CSS color controls from computed component styles', async () => {
+    const user = userEvent.setup()
+
+    const Wrapped = withReinspect(function StyledColorCard() {
+      return <div style={{ color: '#ef4444' }}>styled color</div>
+    }, { name: 'StyledColorCard' })
+
+    renderWithReinspect(<Wrapped />)
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-StyledColorCard'))
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'StyledColorCard controls',
+    })
+
+    await user.click(within(dialog).getByRole('button', { name: 'CSS' }))
+    const colorInput = within(dialog).getByLabelText('Color') as HTMLInputElement
+
+    expect(colorInput.value.toLowerCase()).toBe('#ef4444')
+  })
+
+  it('initializes numeric CSS controls from computed component styles lazily on menu open', async () => {
+    const user = userEvent.setup()
+
+    const Wrapped = withReinspect(function StyledNumericCard() {
+      return <div style={{ padding: '18px', opacity: 0.45 }}>styled numeric</div>
+    }, { name: 'StyledNumericCard' })
+
+    renderWithReinspect(<Wrapped />)
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-StyledNumericCard'))
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'StyledNumericCard controls',
+    })
+
+    await user.click(within(dialog).getByRole('button', { name: 'CSS' }))
+    const paddingInput = within(dialog).getByLabelText(
+      'Padding (px)',
+    ) as HTMLInputElement
+    const opacityInput = within(dialog).getByLabelText('Opacity') as HTMLInputElement
+
+    expect(paddingInput.value).toBe('18')
+    expect(opacityInput.value).toBe('0.45')
   })
 
   it('filters CSS properties in the right-click inspector menu', async () => {

@@ -12,6 +12,7 @@ import type {
   EditableStyleProp,
   InspectFilter,
   InspectMode,
+  MenuTheme,
   PropsSerializationMode,
   RenderCounterMode,
   ReinspectContextValue,
@@ -24,11 +25,13 @@ import {
   compileInspectFilterMatcher,
   isComponentNameInspectableByFilters,
   isInspectMode,
+  isMenuTheme,
   isPropsSerializationMode,
   isRenderCounterMode,
   normalizeInspectFilter,
   persistInspectBlacklist,
   persistInspectMode,
+  persistMenuTheme,
   persistPropsSerializationMode,
   persistInspectWhitelist,
   resolveReinspectConfig,
@@ -58,8 +61,8 @@ function hashComponentName(componentName: string): number {
 function colorFromComponentNameHash(componentName: string): string {
   const hash = hashComponentName(componentName)
   const hue = hash % 360
-  const saturation = 64 + ((hash >>> 8) % 18)
-  const lightness = 46 + ((hash >>> 16) % 12)
+  const saturation = 60 + ((hash >>> 8) % 14)
+  const lightness = 52 + ((hash >>> 16) % 8)
   return `hsl(${hue} ${saturation}% ${lightness}%)`
 }
 
@@ -419,6 +422,18 @@ export function ReinspectProvider({
     [state.propsSerializationMode],
   )
 
+  const setMenuTheme = useCallback(
+    (value: MenuTheme | ((current: MenuTheme) => MenuTheme)) => {
+      const nextValue = typeof value === 'function' ? value(state.menuTheme) : value
+      dispatch({
+        type: 'set-menu-theme',
+        value: nextValue,
+      })
+      persistMenuTheme(nextValue)
+    },
+    [state.menuTheme],
+  )
+
   const updateOverride = useCallback(
     (
       componentId: string,
@@ -512,6 +527,8 @@ export function ReinspectProvider({
       setRenderCounterMode,
       propsSerializationMode: state.propsSerializationMode,
       setPropsSerializationMode,
+      menuTheme: state.menuTheme,
+      setMenuTheme,
       renderCountComponents: state.renderCountComponents,
       setRenderCountingForComponent,
       isRenderCountingEnabledFor,
@@ -539,6 +556,8 @@ export function ReinspectProvider({
       setRenderCounterMode,
       state.propsSerializationMode,
       setPropsSerializationMode,
+      state.menuTheme,
+      setMenuTheme,
       state.renderCountComponents,
       setRenderCountingForComponent,
       isRenderCountingEnabledFor,
@@ -575,6 +594,8 @@ export function ReinspectFloatingToggle() {
     setRenderCounterMode,
     propsSerializationMode,
     setPropsSerializationMode,
+    menuTheme,
+    setMenuTheme,
   } = useReinspect()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTab>('filter')
@@ -618,10 +639,15 @@ export function ReinspectFloatingToggle() {
   }
 
   return (
-    <div className="reinspect-floating-root" ref={settingsRef}>
+    <div
+      className="reinspect-floating-root"
+      ref={settingsRef}
+      data-reinspect-theme={menuTheme}
+    >
       <button
         type="button"
         className="reinspect-floating-toggle"
+        data-reinspect-theme={menuTheme}
         data-testid="reinspect-floating-toggle"
         onClick={() => setIsSettingsOpen((current) => !current)}
         aria-expanded={isSettingsOpen}
@@ -634,6 +660,7 @@ export function ReinspectFloatingToggle() {
         <div
           id="reinspect-settings-menu"
           className="reinspect-settings-menu"
+          data-reinspect-theme={menuTheme}
           role="dialog"
           aria-label="Reinspect settings"
           data-testid="reinspect-settings-menu"
@@ -790,6 +817,29 @@ export function ReinspectFloatingToggle() {
                 <p className="reinspect-setting-note">
                   Per-component capture can be toggled from each component menu.
                 </p>
+
+                <label className="reinspect-settings-select-row">
+                  <span className="reinspect-settings-toggle-label">
+                    Menu theme{' '}
+                    <InfoHint
+                      label="?"
+                      description="Choose the Reinspect menu appearance."
+                    />
+                  </span>
+                  <select
+                    data-testid="reinspect-setting-menu-theme"
+                    value={menuTheme}
+                    onChange={(event) => {
+                      const nextTheme = event.currentTarget.value
+                      if (isMenuTheme(nextTheme)) {
+                        setMenuTheme(nextTheme)
+                      }
+                    }}
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </label>
 
                 <label className="reinspect-settings-select-row">
                   <span className="reinspect-settings-toggle-label">

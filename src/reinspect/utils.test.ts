@@ -3,8 +3,10 @@ import {
   compileInspectFilterMatcher,
   isComponentNameInspectableByFilters,
   normalizeInspectFilter,
+  normalizeHexColor,
   REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY,
   REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
+  REINSPECT_MENU_THEME_STORAGE_KEY,
   REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY,
   resolveReinspectConfig,
 } from './utils'
@@ -167,5 +169,26 @@ describe('inspect filter utils', () => {
     })
 
     expect(resolved.propsSerializationMode).toBe('complete')
+  })
+
+  it('defaults menu theme to light when no config or session value exists', () => {
+    const resolved = resolveReinspectConfig({})
+    expect(resolved.menuTheme).toBe('light')
+  })
+
+  it('resolves session-stored menu theme over config menu theme', () => {
+    window.sessionStorage.setItem(REINSPECT_MENU_THEME_STORAGE_KEY, 'dark')
+
+    const resolved = resolveReinspectConfig({
+      menuTheme: 'light',
+    })
+
+    expect(resolved.menuTheme).toBe('dark')
+  })
+
+  it('normalizes rgb and rgba values for color input fields', () => {
+    expect(normalizeHexColor('rgb(239, 68, 68)')).toBe('#ef4444')
+    expect(normalizeHexColor('rgb(239 68 68 / 1)')).toBe('#ef4444')
+    expect(normalizeHexColor('rgba(239, 68, 68, 0.3)')).toBe('#ef4444')
   })
 })

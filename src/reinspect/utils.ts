@@ -4,6 +4,7 @@ import type {
   InspectFilter,
   InspectFilterConfig,
   InspectMode,
+  MenuTheme,
   PropsSerializationMode,
   RenderCounterMode,
   ReinspectConfig,
@@ -19,6 +20,7 @@ export const REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY =
   'reinspect.inspectBlacklist'
 export const REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY =
   'reinspect.propsSerializationMode'
+export const REINSPECT_MENU_THEME_STORAGE_KEY = 'reinspect.menuTheme'
 export const DEFAULT_INSPECT_FILTER: InspectFilter = {
   patterns: [],
   regex: false,
@@ -41,6 +43,7 @@ const VALID_PROPS_SERIALIZATION_MODES: readonly PropsSerializationMode[] = [
   'distilled',
   'complete',
 ]
+const VALID_MENU_THEMES: readonly MenuTheme[] = ['light', 'dark']
 
 let didWarnAboutLegacyRenderConfig = false
 
@@ -85,6 +88,12 @@ export function isPropsSerializationMode(
   return (
     typeof value === 'string' &&
     VALID_PROPS_SERIALIZATION_MODES.includes(value as PropsSerializationMode)
+  )
+}
+
+export function isMenuTheme(value: unknown): value is MenuTheme {
+  return (
+    typeof value === 'string' && VALID_MENU_THEMES.includes(value as MenuTheme)
   )
 }
 
@@ -288,6 +297,47 @@ export function persistPropsSerializationMode(
   }
 }
 
+function readStoredMenuTheme(): MenuTheme | undefined {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  try {
+    const storedValue = window.sessionStorage.getItem(
+      REINSPECT_MENU_THEME_STORAGE_KEY,
+    )
+
+    return isMenuTheme(storedValue) ? storedValue : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function resolveMenuTheme(configTheme: MenuTheme | undefined): MenuTheme {
+  const storedTheme = readStoredMenuTheme()
+  if (storedTheme) {
+    return storedTheme
+  }
+
+  if (isMenuTheme(configTheme)) {
+    return configTheme
+  }
+
+  return 'light'
+}
+
+export function persistMenuTheme(theme: MenuTheme): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(REINSPECT_MENU_THEME_STORAGE_KEY, theme)
+  } catch {
+    // Best-effort persistence only.
+  }
+}
+
 export function reloadWindow(): void {
   if (typeof window === 'undefined') {
     return
@@ -404,6 +454,7 @@ export function resolveReinspectConfig(
     propsSerializationMode: resolvePropsSerializationMode(
       config.propsSerializationMode,
     ),
+    menuTheme: resolveMenuTheme(config.menuTheme),
   }
 }
 
@@ -427,21 +478,107 @@ export function buildInlineStyleOverrides(
   return result
 }
 
-export function normalizeHexColor(value: string | undefined): string {
+function parseRgbComponent(component: string): number | undefined {
+  const normalized = component.trim()
+  if (normalized.length === 0) {
+    return undefined
+  }
+
+  if (normalized.endsWith('%')) {
+    const asPercent = Number(normalized.slice(0, -1))
+    if (!Number.isFinite(asPercent)) {
+      return undefined
+    }
+
+    return Math.min(255, Math.max(0, Math.round((asPercent / 100) * 255)))
+  }
+
+  const asNumber = Number(normalized)
+  if (!Number.isFinite(asNumber)) {
+    return undefined
+  }
+
+  return Math.min(255, Math.max(0, Math.round(asNumber)))
+}
+
+function toHexChannel(channel: number): string {
+  return channel.toString(16).padStart(2, '0')
+}
+
+function tryParseHexColor(value: string | undefined): string | undefined {
   if (!value) {
-    return '#1f2937'
+    return undefined
   }
 
-  if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-    return value
+  const trimmedValue = value.trim()
+
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmedValue)) {
+    return trimmedValue.toLowerCase()
   }
 
-  if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-    const [, r = '0', g = '0', b = '0'] = value
-    return `#${r}${r}${g}${g}${b}${b}`
+  if (/^#[0-9a-fA-F]{3}$/.test(trimmedValue)) {
+    const [, r = '0', g = '0', b = '0'] = trimmedValue
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase()
+  }
+
+  const rgbMatch = trimmedValue.match(/^rgba?\((.+)\)$/i)
+  if (rgbMatch) {
+    const innerValue = rgbMatch[1].replace(/\//g, ' ')
+    const parts = innerValue.split(/[,\s]+/).filter((part) => part.length > 0)
+    const red = parseRgbComponent(parts[0] ?? '')
+    const green = parseRgbComponent(parts[1] ?? '')
+    const blue = parseRgbComponent(parts[2] ?? '')
+
+    if (red !== undefined && green !== undefined && blue !== undefined) {
+      return `#${toHexChannel(red)}${toHexChannel(green)}${toHexChannel(blue)}`
+    }
+  }
+
+  return undefined
+}
+
+function resolveColorUsingBrowserParser(value: string): string | undefined {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return undefined
+  }
+
+  const probe = document.createElement('span')
+  probe.style.position = 'fixed'
+  probe.style.left = '-9999px'
+  probe.style.top = '-9999px'
+  probe.style.color = ''
+  probe.style.color = value
+  if (!probe.style.color) {
+    return undefined
+  }
+
+  document.body.appendChild(probe)
+  try {
+    const computedColor = window.getComputedStyle(probe).color
+    return tryParseHexColor(computedColor)
+  } finally {
+    probe.remove()
+  }
+}
+
+export function resolveColorInputValue(value: string | undefined): string {
+  const directColor = tryParseHexColor(value)
+  if (directColor) {
+    return directColor
+  }
+
+  if (value) {
+    const browserResolvedColor = resolveColorUsingBrowserParser(value)
+    if (browserResolvedColor) {
+      return browserResolvedColor
+    }
   }
 
   return '#1f2937'
+}
+
+export function normalizeHexColor(value: string | undefined): string {
+  return resolveColorInputValue(value)
 }
 
 export function parseNumberInput(input: string): number | undefined {

@@ -4,6 +4,7 @@ export type InspectMode = 'wrapped' | 'first-party' | 'all'
 export type AutoDiscoverScope = 'first-party' | 'third-party'
 export type RenderCounterMode = 'off' | 'attempts' | 'commits' | 'both'
 export type PropsSerializationMode = 'distilled' | 'complete'
+export type MenuTheme = 'light' | 'dark'
 
 export interface InspectFilter {
   patterns: readonly string[]
@@ -57,6 +58,7 @@ export interface ReinspectConfig extends LegacyReinspectConfig {
   renderCounters?: RenderCounterMode
   countRendersForComponents?: readonly string[]
   propsSerializationMode?: PropsSerializationMode
+  menuTheme?: MenuTheme
 }
 
 export interface ResolvedReinspectConfig {
@@ -71,6 +73,7 @@ export interface ResolvedReinspectConfig {
   renderCounters: RenderCounterMode
   countRendersForComponents: readonly string[]
   propsSerializationMode: PropsSerializationMode
+  menuTheme: MenuTheme
 }
 
 export interface ReinspectContextValue {
@@ -93,6 +96,8 @@ export interface ReinspectContextValue {
   setRenderCounterMode: Dispatch<SetStateAction<RenderCounterMode>>
   propsSerializationMode: PropsSerializationMode
   setPropsSerializationMode: Dispatch<SetStateAction<PropsSerializationMode>>
+  menuTheme: MenuTheme
+  setMenuTheme: Dispatch<SetStateAction<MenuTheme>>
   renderCountComponents: Record<string, true>
   setRenderCountingForComponent: (componentName: string, enabled: boolean) => void
   isRenderCountingEnabledFor: (componentName: string) => boolean

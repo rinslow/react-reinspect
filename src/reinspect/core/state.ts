@@ -3,6 +3,7 @@ import type {
   EditableStyleProp,
   InspectFilter,
   InspectMode,
+  MenuTheme,
   PropsSerializationMode,
   RenderCounterMode,
   ResolvedReinspectConfig,
@@ -17,6 +18,7 @@ export interface ReinspectState {
   inspectBlacklist: InspectFilter
   renderCounterMode: RenderCounterMode
   propsSerializationMode: PropsSerializationMode
+  menuTheme: MenuTheme
   renderCountComponents: Record<string, true>
   overrides: Record<string, ComponentStyleOverrides>
 }
@@ -56,6 +58,11 @@ interface SetPropsSerializationModeAction {
   value: PropsSerializationMode
 }
 
+interface SetMenuThemeAction {
+  type: 'set-menu-theme'
+  value: MenuTheme
+}
+
 interface SetRenderCountingForComponentAction {
   type: 'set-render-counting-for-component'
   componentName: string
@@ -77,6 +84,7 @@ export type ReinspectStateAction =
   | SetInspectBlacklistAction
   | SetRenderCounterModeAction
   | SetPropsSerializationModeAction
+  | SetMenuThemeAction
   | SetRenderCountingForComponentAction
   | UpdateOverrideAction
 
@@ -102,6 +110,7 @@ export function buildInitialReinspectState(
     inspectBlacklist: config.inspectBlacklist,
     renderCounterMode: config.renderCounters,
     propsSerializationMode: config.propsSerializationMode,
+    menuTheme: config.menuTheme,
     renderCountComponents: buildRenderCountComponentMap(
       config.countRendersForComponents,
     ),
@@ -160,6 +169,7 @@ export function reinspectStateReducer(
         inspectBlacklist: action.config.inspectBlacklist,
         renderCounterMode: action.config.renderCounters,
         propsSerializationMode: action.config.propsSerializationMode,
+        menuTheme: action.config.menuTheme,
         renderCountComponents: nextRenderCountComponents,
       }
 
@@ -177,6 +187,7 @@ export function reinspectStateReducer(
         ) &&
         nextState.renderCounterMode === state.renderCounterMode &&
         nextState.propsSerializationMode === state.propsSerializationMode &&
+        nextState.menuTheme === state.menuTheme &&
         shallowEqualStringArray(
           Object.keys(nextState.renderCountComponents),
           Object.keys(state.renderCountComponents),
@@ -244,6 +255,15 @@ export function reinspectStateReducer(
       return {
         ...state,
         propsSerializationMode: action.value,
+      }
+
+    case 'set-menu-theme':
+      if (state.menuTheme === action.value) {
+        return state
+      }
+      return {
+        ...state,
+        menuTheme: action.value,
       }
 
     case 'set-render-counting-for-component': {

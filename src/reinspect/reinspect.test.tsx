@@ -1325,6 +1325,56 @@ describe('Reinspect', () => {
     expect(screen.getByText('theme: light')).toBeInTheDocument()
   })
 
+  it('recalculates detected json prop controls after editing a json value', async () => {
+    const user = userEvent.setup()
+
+    const Wrapped = withReinspect(function EditAttributesCard({
+      config,
+    }: {
+      config: { theme: string } | string
+    }) {
+      const theme = typeof config === 'string' ? config : config.theme
+      return <p>theme: {theme}</p>
+    }, { name: 'EditAttributesCard' })
+
+    renderWithReinspect(<Wrapped config={{ theme: 'dark' }} />)
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-EditAttributesCard'))
+    const dialog = screen.getByRole('dialog', {
+      name: 'EditAttributesCard controls',
+    })
+
+    await user.click(within(dialog).getByRole('button', { name: 'Props' }))
+
+    const showJsonButton = within(dialog).getByTestId(
+      'reinspect-prop-show-json-config',
+    )
+    await user.click(showJsonButton)
+    expect(
+      within(dialog).getByTestId('reinspect-prop-json-preview-config'),
+    ).toHaveTextContent('"theme": "dark"')
+
+    await user.click(within(dialog).getByTestId('reinspect-prop-edit-config'))
+    const modal = screen.getByTestId('reinspect-prop-edit-modal')
+    const textarea = within(modal).getByTestId('reinspect-prop-edit-textarea')
+
+    fireEvent.change(textarea, {
+      target: { value: '"light"' },
+    })
+    await user.click(within(modal).getByRole('button', { name: 'apply' }))
+
+    expect(screen.getByText('theme: light')).toBeInTheDocument()
+    expect(
+      within(dialog).getByTestId('reinspect-prop-value-config'),
+    ).toHaveTextContent('"light"')
+    expect(
+      within(dialog).queryByTestId('reinspect-prop-show-json-config'),
+    ).not.toBeInTheDocument()
+    expect(
+      within(dialog).queryByTestId('reinspect-prop-json-preview-config'),
+    ).not.toBeInTheDocument()
+  })
+
   it('prefills raw json without non-serializable props in distilled mode', async () => {
     const user = userEvent.setup()
 

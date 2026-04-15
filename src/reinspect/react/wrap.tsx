@@ -254,6 +254,10 @@ function renderEditIcon() {
   )
 }
 
+function supportsJsonPreview(value: unknown): boolean {
+  return Array.isArray(value) || (typeof value === 'object' && value !== null)
+}
+
 async function copyTextToClipboard(text: string): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
     return false
@@ -717,6 +721,9 @@ export function withReinspectInternal<P extends object>(
       }
 
       setPropsOverrides(parsed as Partial<P>)
+      setJsonPreviewByProp({})
+      setJsonPreviewErrorByProp({})
+      setOpenJsonPreviewByProp({})
       setPropsError(null)
     }
 
@@ -817,16 +824,79 @@ export function withReinspectInternal<P extends object>(
         return
       }
 
+      const targetPropKey = editingPropKey
       const { parsed, error } = parseEditablePropValueInput(editingDraft)
       if (error || parsed === null) {
         setEditingError(error)
         return
       }
 
+      const nextValueSupportsJsonPreview = supportsJsonPreview(parsed)
+      const serializedNextValue = nextValueSupportsJsonPreview
+        ? serializeValueForJson(parsed, { mode: propsSerializationMode })
+        : null
+
       setPropsOverrides((current) => ({
         ...(current as Record<string, unknown>),
-        [editingPropKey]: parsed,
+        [targetPropKey]: parsed,
       }) as Partial<P>)
+      setJsonPreviewByProp((current) => {
+        if (serializedNextValue === null) {
+          if (!(targetPropKey in current)) {
+            return current
+          }
+
+          const next = { ...current }
+          delete next[targetPropKey]
+          return next
+        }
+
+        if (current[targetPropKey] === serializedNextValue) {
+          return current
+        }
+
+        return {
+          ...current,
+          [targetPropKey]: serializedNextValue,
+        }
+      })
+      setJsonPreviewErrorByProp((current) => {
+        const unsupportedPreviewMessage =
+          'JSON preview is unavailable for this value.'
+
+        if (nextValueSupportsJsonPreview && serializedNextValue === null) {
+          if (current[targetPropKey] === unsupportedPreviewMessage) {
+            return current
+          }
+
+          return {
+            ...current,
+            [targetPropKey]: unsupportedPreviewMessage,
+          }
+        }
+
+        if (!(targetPropKey in current)) {
+          return current
+        }
+
+        const next = { ...current }
+        delete next[targetPropKey]
+        return next
+      })
+      setOpenJsonPreviewByProp((current) => {
+        if (nextValueSupportsJsonPreview) {
+          return current
+        }
+
+        if (!current[targetPropKey]) {
+          return current
+        }
+
+        return {
+          ...current,
+          [targetPropKey]: false,
+        }
+      })
 
       setEditingPropKey(null)
       setEditingDraft('')

@@ -44,6 +44,18 @@
   --reinspect-interactive-border-active: var(--reinspect-brand-500);
   --reinspect-interactive-text: var(--reinspect-menu-text);
   --reinspect-interactive-text-active: var(--reinspect-brand-700);
+  --reinspect-prism-bg: #f5f5f5;
+  --reinspect-prism-text: #1f1f1f;
+  --reinspect-prism-comment: #008000;
+  --reinspect-prism-keyword: #0000ff;
+  --reinspect-prism-string: #a31515;
+  --reinspect-prism-number: #098658;
+  --reinspect-prism-boolean: #0000ff;
+  --reinspect-prism-function: #795e26;
+  --reinspect-prism-property: #001080;
+  --reinspect-prism-operator: #1f1f1f;
+  --reinspect-prism-punctuation: #1f1f1f;
+  --reinspect-prism-constant: #0070c1;
 
   --reinspect-semantic-error: oklch(0.62 0.165 20);
   --reinspect-semantic-success: oklch(0.67 0.115 158);
@@ -109,6 +121,18 @@
   --reinspect-interactive-border-active: var(--reinspect-brand-400);
   --reinspect-interactive-text: var(--reinspect-menu-text);
   --reinspect-interactive-text-active: oklch(0.966 0.014 252);
+  --reinspect-prism-bg: #1e1e1e;
+  --reinspect-prism-text: #d4d4d4;
+  --reinspect-prism-comment: #6a9955;
+  --reinspect-prism-keyword: #569cd6;
+  --reinspect-prism-string: #ce9178;
+  --reinspect-prism-number: #b5cea8;
+  --reinspect-prism-boolean: #569cd6;
+  --reinspect-prism-function: #dcdcaa;
+  --reinspect-prism-property: #9cdcfe;
+  --reinspect-prism-operator: #d4d4d4;
+  --reinspect-prism-punctuation: #d4d4d4;
+  --reinspect-prism-constant: #4fc1ff;
 }
 
 .reinspect-shell,
@@ -1023,7 +1047,7 @@
   margin: 0;
   border: 1px solid var(--reinspect-menu-border-subtle);
   border-radius: 8px;
-  background: var(--reinspect-brand-soft);
+  background: var(--reinspect-prism-bg);
   padding: 6px;
   font-size: 11px;
   line-height: 1.3;
@@ -1041,7 +1065,7 @@
   margin: 0;
   border: 1px solid var(--reinspect-menu-border-subtle);
   border-radius: 8px;
-  background: var(--reinspect-brand-soft);
+  background: var(--reinspect-prism-bg);
   padding: 6px;
   font-size: 11px;
   line-height: 1.3;
@@ -1049,6 +1073,78 @@
   word-break: break-word;
   max-height: 180px;
   overflow: auto;
+}
+
+.reinspect-prop-function pre code.reinspect-code-block,
+.reinspect-prop-json-preview pre code.reinspect-code-block {
+  display: block;
+  color: var(--reinspect-prism-text);
+  font-family: var(--reinspect-font-mono);
+  white-space: inherit;
+  word-break: inherit;
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.comment,
+.reinspect-prop-function pre code.reinspect-code-block .token.prolog,
+.reinspect-prop-function pre code.reinspect-code-block .token.doctype,
+.reinspect-prop-function pre code.reinspect-code-block .token.cdata,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.comment,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.prolog,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.doctype,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.cdata {
+  color: var(--reinspect-prism-comment);
+  font-style: italic;
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.punctuation,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.punctuation {
+  color: var(--reinspect-prism-punctuation);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.property,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.property {
+  color: var(--reinspect-prism-property);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.string,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.string,
+.reinspect-prop-function pre code.reinspect-code-block .token.char,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.char,
+.reinspect-prop-function pre code.reinspect-code-block .token.regex,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.regex {
+  color: var(--reinspect-prism-string);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.number,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.number {
+  color: var(--reinspect-prism-number);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.boolean,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.boolean {
+  color: var(--reinspect-prism-boolean);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.keyword,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.keyword {
+  color: var(--reinspect-prism-keyword);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.function,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.function,
+.reinspect-prop-function pre code.reinspect-code-block .token.function-variable,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.function-variable {
+  color: var(--reinspect-prism-function);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.operator,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.operator {
+  color: var(--reinspect-prism-operator);
+}
+
+.reinspect-prop-function pre code.reinspect-code-block .token.constant,
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.constant {
+  color: var(--reinspect-prism-constant);
 }
 
 @media (max-width: 520px) {

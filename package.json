@@ -72,6 +72,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/babel__generator": "^7.27.0",
     "@types/node": "^24.12.2",
+    "@types/prismjs": "^1.26.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -87,5 +88,8 @@
     "typescript-eslint": "^8.58.1",
     "vite": "^8.0.8",
     "vitest": "^4.1.4"
+  },
+  "dependencies": {
+    "prismjs": "^1.30.0"
   }
 }

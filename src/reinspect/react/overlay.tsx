@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { formatRenderCountLabel, useRenderCounts } from '../core/renderCounter'
 import type { InspectedValueDescriptor } from '../propsInspector'
+import { highlightCode } from '../syntaxHighlight'
 import type { RenderCounterMode } from '../types'
 
 interface PropsValueTreeProps {
@@ -15,7 +16,14 @@ export function renderPropsValueTree({ value }: PropsValueTreeProps): ReactNode 
     return (
       <div className="reinspect-prop-function">
         <code>{value.summary}</code>
-        <pre>{functionMeta.preview}</pre>
+        <pre>
+          <code
+            className="language-javascript reinspect-code-block"
+            dangerouslySetInnerHTML={{
+              __html: highlightCode(functionMeta.preview, 'javascript'),
+            }}
+          />
+        </pre>
       </div>
     )
   }

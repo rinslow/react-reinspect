@@ -1109,6 +1109,9 @@ describe('Reinspect', () => {
     const valueCell = within(dialog).getByTestId('reinspect-prop-value-onSave')
     expect(within(valueCell).getByText('Function onSave(0)')).toBeInTheDocument()
     expect(
+      valueCell.querySelector('code.language-javascript.reinspect-code-block'),
+    ).not.toBeNull()
+    expect(
       within(valueCell).getByRole('button', { name: 'Copy function source' }),
     ).toBeInTheDocument()
   })
@@ -1143,6 +1146,9 @@ describe('Reinspect', () => {
     )
     expect(preview).toHaveTextContent('"theme": "dark"')
     expect(preview).toHaveTextContent('"size": 2')
+    expect(
+      preview.querySelector('code.language-json.reinspect-code-block'),
+    ).not.toBeNull()
   })
 
   it('edits object props through the modal editor', async () => {

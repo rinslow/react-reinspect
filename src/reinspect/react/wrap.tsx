@@ -49,6 +49,7 @@ import {
   resetRenderCounts,
 } from '../core/renderCounter'
 import { RenderCountBadge, renderPropsValueTree } from './overlay'
+import { highlightCode } from '../syntaxHighlight'
 
 export interface WithReinspectInternalOptions {
   componentName?: string
@@ -134,7 +135,8 @@ function isTransparentColorValue(value: string | undefined): boolean {
     return false
   }
 
-  const innerValue = rgbaMatch[1].replace(/\//g, ' ')
+  const [, innerValueRaw = ''] = rgbaMatch
+  const innerValue = innerValueRaw.replace(/\//g, ' ')
   const parts = innerValue.split(/[,\s]+/).filter((part) => part.length > 0)
   if (parts.length < 4) {
     return false
@@ -1289,9 +1291,14 @@ export function withReinspectInternal<P extends object>(
                               {jsonPreviewError ? (
                                 <p className="reinspect-error">{jsonPreviewError}</p>
                               ) : (
-                                <>
-                                  <pre>{jsonPreview}</pre>
-                                </>
+                                <pre>
+                                  <code
+                                    className="language-json reinspect-code-block"
+                                    dangerouslySetInnerHTML={{
+                                      __html: highlightCode(jsonPreview ?? '', 'json'),
+                                    }}
+                                  />
+                                </pre>
                               )}
                             </div>
                           ) : null}

@@ -5,6 +5,24 @@ export type AutoDiscoverScope = 'first-party' | 'third-party'
 export type RenderCounterMode = 'off' | 'attempts' | 'commits' | 'both'
 export type PropsSerializationMode = 'distilled' | 'complete'
 export type MenuTheme = 'light' | 'dark'
+export type MenuOpenTriggerMode = 'right-click' | 'modifier-right-click'
+
+export interface MenuOpenModifiers {
+  ctrl: boolean
+  alt: boolean
+  shift: boolean
+  meta: boolean
+}
+
+export interface MenuOpenGesture {
+  mode: MenuOpenTriggerMode
+  modifiers: MenuOpenModifiers
+}
+
+export interface MenuOpenGestureConfig {
+  mode?: MenuOpenTriggerMode
+  modifiers?: Partial<MenuOpenModifiers>
+}
 
 export interface InspectFilter {
   patterns: readonly string[]
@@ -59,6 +77,7 @@ export interface ReinspectConfig extends LegacyReinspectConfig {
   countRendersForComponents?: readonly string[]
   propsSerializationMode?: PropsSerializationMode
   menuTheme?: MenuTheme
+  menuOpenGesture?: MenuOpenGestureConfig
 }
 
 export interface ResolvedReinspectConfig {
@@ -74,6 +93,7 @@ export interface ResolvedReinspectConfig {
   countRendersForComponents: readonly string[]
   propsSerializationMode: PropsSerializationMode
   menuTheme: MenuTheme
+  menuOpenGesture: MenuOpenGesture
 }
 
 export interface ReinspectContextValue {
@@ -98,6 +118,8 @@ export interface ReinspectContextValue {
   setPropsSerializationMode: Dispatch<SetStateAction<PropsSerializationMode>>
   menuTheme: MenuTheme
   setMenuTheme: Dispatch<SetStateAction<MenuTheme>>
+  menuOpenGesture: MenuOpenGesture
+  setMenuOpenGesture: Dispatch<SetStateAction<MenuOpenGesture>>
   renderCountComponents: Record<string, true>
   setRenderCountingForComponent: (componentName: string, enabled: boolean) => void
   isRenderCountingEnabledFor: (componentName: string) => boolean

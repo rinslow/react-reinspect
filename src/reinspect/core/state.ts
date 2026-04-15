@@ -3,6 +3,7 @@ import type {
   EditableStyleProp,
   InspectFilter,
   InspectMode,
+  MenuOpenGesture,
   MenuTheme,
   PropsSerializationMode,
   RenderCounterMode,
@@ -19,6 +20,7 @@ export interface ReinspectState {
   renderCounterMode: RenderCounterMode
   propsSerializationMode: PropsSerializationMode
   menuTheme: MenuTheme
+  menuOpenGesture: MenuOpenGesture
   renderCountComponents: Record<string, true>
   overrides: Record<string, ComponentStyleOverrides>
 }
@@ -63,6 +65,11 @@ interface SetMenuThemeAction {
   value: MenuTheme
 }
 
+interface SetMenuOpenGestureAction {
+  type: 'set-menu-open-gesture'
+  value: MenuOpenGesture
+}
+
 interface SetRenderCountingForComponentAction {
   type: 'set-render-counting-for-component'
   componentName: string
@@ -85,6 +92,7 @@ export type ReinspectStateAction =
   | SetRenderCounterModeAction
   | SetPropsSerializationModeAction
   | SetMenuThemeAction
+  | SetMenuOpenGestureAction
   | SetRenderCountingForComponentAction
   | UpdateOverrideAction
 
@@ -111,6 +119,7 @@ export function buildInitialReinspectState(
     renderCounterMode: config.renderCounters,
     propsSerializationMode: config.propsSerializationMode,
     menuTheme: config.menuTheme,
+    menuOpenGesture: config.menuOpenGesture,
     renderCountComponents: buildRenderCountComponentMap(
       config.countRendersForComponents,
     ),
@@ -151,6 +160,19 @@ function shallowEqualInspectFilter(
   )
 }
 
+function shallowEqualMenuOpenGesture(
+  left: MenuOpenGesture,
+  right: MenuOpenGesture,
+): boolean {
+  return (
+    left.mode === right.mode &&
+    left.modifiers.ctrl === right.modifiers.ctrl &&
+    left.modifiers.alt === right.modifiers.alt &&
+    left.modifiers.shift === right.modifiers.shift &&
+    left.modifiers.meta === right.modifiers.meta
+  )
+}
+
 export function reinspectStateReducer(
   state: ReinspectState,
   action: ReinspectStateAction,
@@ -170,6 +192,7 @@ export function reinspectStateReducer(
         renderCounterMode: action.config.renderCounters,
         propsSerializationMode: action.config.propsSerializationMode,
         menuTheme: action.config.menuTheme,
+        menuOpenGesture: action.config.menuOpenGesture,
         renderCountComponents: nextRenderCountComponents,
       }
 
@@ -188,6 +211,10 @@ export function reinspectStateReducer(
         nextState.renderCounterMode === state.renderCounterMode &&
         nextState.propsSerializationMode === state.propsSerializationMode &&
         nextState.menuTheme === state.menuTheme &&
+        shallowEqualMenuOpenGesture(
+          nextState.menuOpenGesture,
+          state.menuOpenGesture,
+        ) &&
         shallowEqualStringArray(
           Object.keys(nextState.renderCountComponents),
           Object.keys(state.renderCountComponents),
@@ -264,6 +291,15 @@ export function reinspectStateReducer(
       return {
         ...state,
         menuTheme: action.value,
+      }
+
+    case 'set-menu-open-gesture':
+      if (shallowEqualMenuOpenGesture(state.menuOpenGesture, action.value)) {
+        return state
+      }
+      return {
+        ...state,
+        menuOpenGesture: action.value,
       }
 
     case 'set-render-counting-for-component': {

@@ -1451,6 +1451,34 @@
   gap: 6px;
 }
 
+.reinspect-macro-setting {
+  border: 1px solid var(--reinspect-menu-border-subtle);
+  border-radius: 8px;
+  background: var(--reinspect-menu-surface);
+  padding: 8px;
+}
+
+.reinspect-macro-setting .reinspect-setting-note {
+  margin: 0;
+}
+
+.reinspect-macro-setting .reinspect-setting-note code {
+  font-family: var(--reinspect-font-mono);
+  font-size: 11px;
+}
+
+.reinspect-macro-setting .reinspect-inline-controls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reinspect-macro-setting
+  .reinspect-inline-controls
+  button[data-state='active'] {
+  border-color: var(--reinspect-brand-600);
+  background: var(--reinspect-brand-soft-strong);
+  color: var(--reinspect-brand-700);
+}
+
 .reinspect-apply-button {
   border: 1px solid var(--reinspect-brand-500);
   border-radius: 8px;

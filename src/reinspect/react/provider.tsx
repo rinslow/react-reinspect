@@ -12,6 +12,8 @@ import type {
   EditableStyleProp,
   InspectFilter,
   InspectMode,
+  MenuOpenGesture,
+  MenuOpenModifiers,
   MenuTheme,
   PropsSerializationMode,
   RenderCounterMode,
@@ -23,14 +25,17 @@ import { ReinspectContext } from './context'
 import { useReinspect } from '../useReinspect'
 import {
   compileInspectFilterMatcher,
+  DEFAULT_MENU_OPEN_MODIFIERS,
   isComponentNameInspectableByFilters,
   isInspectMode,
+  isMenuOpenTriggerMode,
   isMenuTheme,
   isPropsSerializationMode,
   isRenderCounterMode,
   normalizeInspectFilter,
   persistInspectBlacklist,
   persistInspectMode,
+  persistMenuOpenGesture,
   persistMenuTheme,
   persistPropsSerializationMode,
   persistInspectWhitelist,
@@ -104,6 +109,39 @@ function appendUniquePatterns(
   }
 
   return nextPatterns
+}
+
+function formatModifierMacro(modifiers: MenuOpenModifiers): string {
+  const labels: string[] = []
+  if (modifiers.ctrl) {
+    labels.push('Ctrl')
+  }
+  if (modifiers.alt) {
+    labels.push('Alt')
+  }
+  if (modifiers.shift) {
+    labels.push('Shift')
+  }
+  if (modifiers.meta) {
+    labels.push('Meta')
+  }
+
+  return labels.join(' + ')
+}
+
+function hasAnyModifier(modifiers: MenuOpenModifiers): boolean {
+  return modifiers.ctrl || modifiers.alt || modifiers.shift || modifiers.meta
+}
+
+function readModifierMacroFromKeyboardEvent(
+  event: KeyboardEvent,
+): MenuOpenModifiers {
+  return {
+    ctrl: event.ctrlKey,
+    alt: event.altKey,
+    shift: event.shiftKey,
+    meta: event.metaKey,
+  }
 }
 
 interface InspectFilterEditorProps {
@@ -434,6 +472,23 @@ export function ReinspectProvider({
     [state.menuTheme],
   )
 
+  const setMenuOpenGesture = useCallback(
+    (
+      value:
+        | MenuOpenGesture
+        | ((current: MenuOpenGesture) => MenuOpenGesture),
+    ) => {
+      const nextValue =
+        typeof value === 'function' ? value(state.menuOpenGesture) : value
+      dispatch({
+        type: 'set-menu-open-gesture',
+        value: nextValue,
+      })
+      persistMenuOpenGesture(nextValue)
+    },
+    [state.menuOpenGesture],
+  )
+
   const updateOverride = useCallback(
     (
       componentId: string,
@@ -529,6 +584,8 @@ export function ReinspectProvider({
       setPropsSerializationMode,
       menuTheme: state.menuTheme,
       setMenuTheme,
+      menuOpenGesture: state.menuOpenGesture,
+      setMenuOpenGesture,
       renderCountComponents: state.renderCountComponents,
       setRenderCountingForComponent,
       isRenderCountingEnabledFor,
@@ -558,6 +615,8 @@ export function ReinspectProvider({
       setPropsSerializationMode,
       state.menuTheme,
       setMenuTheme,
+      state.menuOpenGesture,
+      setMenuOpenGesture,
       state.renderCountComponents,
       setRenderCountingForComponent,
       isRenderCountingEnabledFor,
@@ -596,9 +655,13 @@ export function ReinspectFloatingToggle() {
     setPropsSerializationMode,
     menuTheme,
     setMenuTheme,
+    menuOpenGesture,
+    setMenuOpenGesture,
   } = useReinspect()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTab>('filter')
+  const [isRecordingMenuModifierMacro, setIsRecordingMenuModifierMacro] =
+    useState(false)
   const settingsRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -633,6 +696,33 @@ export function ReinspectFloatingToggle() {
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [isSettingsOpen])
+
+  useEffect(() => {
+    if (!isRecordingMenuModifierMacro) {
+      return undefined
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const nextModifiers = readModifierMacroFromKeyboardEvent(event)
+      if (!hasAnyModifier(nextModifiers)) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      setMenuOpenGesture((current) => ({
+        ...current,
+        mode: 'modifier-right-click',
+        modifiers: nextModifiers,
+      }))
+      setIsRecordingMenuModifierMacro(false)
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true)
+    }
+  }, [isRecordingMenuModifierMacro, setMenuOpenGesture])
 
   if (!config.enabled) {
     return null
@@ -840,6 +930,78 @@ export function ReinspectFloatingToggle() {
                     <option value="dark">Dark</option>
                   </select>
                 </label>
+
+                <label className="reinspect-settings-select-row">
+                  <span className="reinspect-settings-toggle-label">
+                    Menu open trigger{' '}
+                    <InfoHint
+                      label="?"
+                      description="Choose how to open the inspector menu on components."
+                    />
+                  </span>
+                  <select
+                    data-testid="reinspect-setting-menu-open-trigger"
+                    value={menuOpenGesture.mode}
+                    onChange={(event) => {
+                      const nextMode = event.currentTarget.value
+                      if (isMenuOpenTriggerMode(nextMode)) {
+                        setMenuOpenGesture((current) => ({
+                          ...current,
+                          mode: nextMode,
+                        }))
+                      }
+                    }}
+                  >
+                    <option value="right-click">Right click</option>
+                    <option value="modifier-right-click">
+                      Right click + modifier macro
+                    </option>
+                  </select>
+                </label>
+
+                {menuOpenGesture.mode === 'modifier-right-click' ? (
+                  <section className="reinspect-setting-block reinspect-macro-setting">
+                    <p
+                      className="reinspect-setting-note"
+                      data-testid="reinspect-setting-menu-open-modifier-label"
+                    >
+                      Current macro:{' '}
+                      <code>{formatModifierMacro(menuOpenGesture.modifiers)}</code>
+                    </p>
+
+                    <div className="reinspect-inline-controls">
+                      <button
+                        type="button"
+                        data-testid="reinspect-setting-menu-open-modifier-record"
+                        onClick={() => {
+                          setIsRecordingMenuModifierMacro((current) => !current)
+                        }}
+                        data-state={isRecordingMenuModifierMacro ? 'active' : 'idle'}
+                      >
+                        {isRecordingMenuModifierMacro
+                          ? 'Press modifier keys...'
+                          : 'Record macro'}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="reinspect-setting-menu-open-modifier-reset"
+                        onClick={() =>
+                          setMenuOpenGesture((current) => ({
+                            ...current,
+                            modifiers: { ...DEFAULT_MENU_OPEN_MODIFIERS },
+                          }))
+                        }
+                      >
+                        Reset to Shift
+                      </button>
+                    </div>
+
+                    <p className="reinspect-setting-helper-text">
+                      Hold one or more modifier keys (Ctrl, Alt, Shift, Meta),
+                      then press any key to save the macro.
+                    </p>
+                  </section>
+                ) : null}
 
                 <label className="reinspect-settings-select-row">
                   <span className="reinspect-settings-toggle-label">

@@ -350,6 +350,99 @@ describe('Reinspect', () => {
     )
   })
 
+  it('applies menu open trigger through settings live and persists it', async () => {
+    const user = userEvent.setup()
+
+    function Probe() {
+      const { menuOpenGesture } = useReinspect()
+      return <output data-testid="menu-open-trigger-probe">{menuOpenGesture.mode}</output>
+    }
+
+    renderWithReinspect(<Probe />, {
+      enabled: true,
+      showFloatingToggle: true,
+    })
+
+    await user.click(screen.getByTestId('reinspect-floating-toggle'))
+    const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+    await user.click(
+      within(settingsMenu).getByTestId('reinspect-settings-tab-settings'),
+    )
+
+    const triggerSelect = within(settingsMenu).getByTestId(
+      'reinspect-setting-menu-open-trigger',
+    )
+    expect(triggerSelect).toHaveValue('right-click')
+    expect(screen.getByTestId('menu-open-trigger-probe')).toHaveTextContent(
+      'right-click',
+    )
+
+    fireEvent.change(triggerSelect, { target: { value: 'modifier-right-click' } })
+
+    expect(screen.getByTestId('menu-open-trigger-probe')).toHaveTextContent(
+      'modifier-right-click',
+    )
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_MENU_OPEN_GESTURE_STORAGE_KEY,
+      ),
+    ).toContain('"mode":"modifier-right-click"')
+  })
+
+  it('records modifier macro and gates context menu opening to that macro', async () => {
+    const user = userEvent.setup()
+
+    const TriggerCard = withReinspect(function TriggerCard() {
+      return <p>trigger card</p>
+    }, { name: 'TriggerCard' })
+
+    renderWithReinspect(<TriggerCard />, {
+      enabled: true,
+      startActive: true,
+      showFloatingToggle: true,
+    })
+
+    await user.click(screen.getByTestId('reinspect-floating-toggle'))
+    const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+    await user.click(
+      within(settingsMenu).getByTestId('reinspect-settings-tab-settings'),
+    )
+
+    fireEvent.change(
+      within(settingsMenu).getByTestId('reinspect-setting-menu-open-trigger'),
+      { target: { value: 'modifier-right-click' } },
+    )
+
+    await user.click(
+      within(settingsMenu).getByTestId(
+        'reinspect-setting-menu-open-modifier-record',
+      ),
+    )
+
+    fireEvent.keyDown(document, {
+      key: 'k',
+      altKey: true,
+      shiftKey: true,
+    })
+
+    expect(
+      within(settingsMenu).getByTestId('reinspect-setting-menu-open-modifier-label'),
+    ).toHaveTextContent('Alt + Shift')
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-TriggerCard'))
+    expect(
+      screen.queryByRole('dialog', { name: 'TriggerCard controls' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-TriggerCard'), {
+      altKey: true,
+      shiftKey: true,
+    })
+    expect(
+      screen.getByRole('dialog', { name: 'TriggerCard controls' }),
+    ).toBeInTheDocument()
+  })
+
   it('applies inspect whitelist changes live and persists them for the session', async () => {
     const user = userEvent.setup()
 

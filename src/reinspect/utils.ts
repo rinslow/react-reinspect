@@ -4,6 +4,10 @@ import type {
   InspectFilter,
   InspectFilterConfig,
   InspectMode,
+  MenuOpenGesture,
+  MenuOpenGestureConfig,
+  MenuOpenModifiers,
+  MenuOpenTriggerMode,
   MenuTheme,
   PropsSerializationMode,
   RenderCounterMode,
@@ -21,11 +25,22 @@ export const REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY =
 export const REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY =
   'reinspect.propsSerializationMode'
 export const REINSPECT_MENU_THEME_STORAGE_KEY = 'reinspect.menuTheme'
+export const REINSPECT_MENU_OPEN_GESTURE_STORAGE_KEY = 'reinspect.menuOpenGesture'
 export const DEFAULT_INSPECT_FILTER: InspectFilter = {
   patterns: [],
   regex: false,
   wholeWord: false,
   matchCase: false,
+}
+export const DEFAULT_MENU_OPEN_MODIFIERS: MenuOpenModifiers = {
+  ctrl: false,
+  alt: false,
+  shift: true,
+  meta: false,
+}
+export const DEFAULT_MENU_OPEN_GESTURE: MenuOpenGesture = {
+  mode: 'right-click',
+  modifiers: DEFAULT_MENU_OPEN_MODIFIERS,
 }
 
 const VALID_INSPECT_MODES: readonly InspectMode[] = [
@@ -44,6 +59,10 @@ const VALID_PROPS_SERIALIZATION_MODES: readonly PropsSerializationMode[] = [
   'complete',
 ]
 const VALID_MENU_THEMES: readonly MenuTheme[] = ['light', 'dark']
+const VALID_MENU_OPEN_TRIGGER_MODES: readonly MenuOpenTriggerMode[] = [
+  'right-click',
+  'modifier-right-click',
+]
 
 let didWarnAboutLegacyRenderConfig = false
 
@@ -95,6 +114,43 @@ export function isMenuTheme(value: unknown): value is MenuTheme {
   return (
     typeof value === 'string' && VALID_MENU_THEMES.includes(value as MenuTheme)
   )
+}
+
+export function isMenuOpenTriggerMode(
+  value: unknown,
+): value is MenuOpenTriggerMode {
+  return (
+    typeof value === 'string' &&
+    VALID_MENU_OPEN_TRIGGER_MODES.includes(value as MenuOpenTriggerMode)
+  )
+}
+
+function normalizeMenuOpenModifiers(
+  modifiers: Partial<MenuOpenModifiers> | undefined,
+): MenuOpenModifiers {
+  const normalized: MenuOpenModifiers = {
+    ctrl: modifiers?.ctrl === true,
+    alt: modifiers?.alt === true,
+    shift: modifiers?.shift === true,
+    meta: modifiers?.meta === true,
+  }
+
+  if (normalized.ctrl || normalized.alt || normalized.shift || normalized.meta) {
+    return normalized
+  }
+
+  return { ...DEFAULT_MENU_OPEN_MODIFIERS }
+}
+
+function normalizeMenuOpenGesture(
+  gesture: MenuOpenGestureConfig | MenuOpenGesture | undefined,
+): MenuOpenGesture {
+  return {
+    mode: isMenuOpenTriggerMode(gesture?.mode)
+      ? gesture.mode
+      : DEFAULT_MENU_OPEN_GESTURE.mode,
+    modifiers: normalizeMenuOpenModifiers(gesture?.modifiers),
+  }
 }
 
 export function normalizeInspectFilter(
@@ -338,6 +394,59 @@ export function persistMenuTheme(theme: MenuTheme): void {
   }
 }
 
+function readStoredMenuOpenGesture(): MenuOpenGesture | undefined {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  try {
+    const storedValue = window.sessionStorage.getItem(
+      REINSPECT_MENU_OPEN_GESTURE_STORAGE_KEY,
+    )
+    if (!storedValue) {
+      return undefined
+    }
+
+    const parsedValue = JSON.parse(storedValue) as unknown
+    if (!isRecord(parsedValue)) {
+      return undefined
+    }
+
+    return normalizeMenuOpenGesture(parsedValue as MenuOpenGestureConfig)
+  } catch {
+    return undefined
+  }
+}
+
+export function resolveMenuOpenGesture(
+  configGesture: MenuOpenGestureConfig | undefined,
+): MenuOpenGesture {
+  const storedGesture = readStoredMenuOpenGesture()
+  if (storedGesture) {
+    return storedGesture
+  }
+
+  return normalizeMenuOpenGesture(configGesture)
+}
+
+export function persistMenuOpenGesture(
+  gesture: MenuOpenGestureConfig | MenuOpenGesture,
+): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const normalized = normalizeMenuOpenGesture(gesture)
+    window.sessionStorage.setItem(
+      REINSPECT_MENU_OPEN_GESTURE_STORAGE_KEY,
+      JSON.stringify(normalized),
+    )
+  } catch {
+    // Best-effort persistence only.
+  }
+}
+
 export function reloadWindow(): void {
   if (typeof window === 'undefined') {
     return
@@ -455,6 +564,7 @@ export function resolveReinspectConfig(
       config.propsSerializationMode,
     ),
     menuTheme: resolveMenuTheme(config.menuTheme),
+    menuOpenGesture: resolveMenuOpenGesture(config.menuOpenGesture),
   }
 }
 
@@ -523,7 +633,7 @@ function tryParseHexColor(value: string | undefined): string | undefined {
 
   const rgbMatch = trimmedValue.match(/^rgba?\((.+)\)$/i)
   if (rgbMatch) {
-    const innerValue = rgbMatch[1].replace(/\//g, ' ')
+    const innerValue = (rgbMatch[1] ?? '').replace(/\//g, ' ')
     const parts = innerValue.split(/[,\s]+/).filter((part) => part.length > 0)
     const red = parseRgbComponent(parts[0] ?? '')
     const green = parseRgbComponent(parts[1] ?? '')

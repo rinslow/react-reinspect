@@ -36,6 +36,7 @@ import type {
   AutoDiscoverScope,
   EditableStyleProp,
   InspectMode,
+  MenuOpenGesture,
   RenderCounterMode,
   StyleOverrideValue,
 } from '../types'
@@ -84,6 +85,15 @@ const FALLBACK_CONFIG = {
   countRendersForComponents: [] as const,
   propsSerializationMode: 'distilled' as const,
   menuTheme: 'light' as const,
+  menuOpenGesture: {
+    mode: 'right-click' as const,
+    modifiers: {
+      ctrl: false,
+      alt: false,
+      shift: true,
+      meta: false,
+    },
+  },
 }
 
 let instanceSequence = 0
@@ -191,6 +201,31 @@ function togglePattern(patterns: readonly string[], pattern: string): string[] {
   return patterns.includes(pattern)
     ? patterns.filter((value) => value !== pattern)
     : appendUniquePattern(patterns, pattern)
+}
+
+function doesEventMatchMenuOpenGesture(
+  event: ReactMouseEvent<HTMLDivElement>,
+  menuOpenGesture: MenuOpenGesture,
+): boolean {
+  if (menuOpenGesture.mode === 'right-click') {
+    return true
+  }
+
+  const requiredModifiers = menuOpenGesture.modifiers
+  if (requiredModifiers.ctrl && !event.ctrlKey) {
+    return false
+  }
+  if (requiredModifiers.alt && !event.altKey) {
+    return false
+  }
+  if (requiredModifiers.shift && !event.shiftKey) {
+    return false
+  }
+  if (requiredModifiers.meta && !event.metaKey) {
+    return false
+  }
+
+  return true
 }
 
 function renderCopyIcon() {
@@ -334,6 +369,8 @@ export function withReinspectInternal<P extends object>(
       reinspectContext?.getColor ??
       (() => '#f97316')
     const menuTheme = reinspectContext?.menuTheme ?? 'light'
+    const menuOpenGesture =
+      reinspectContext?.menuOpenGesture ?? FALLBACK_CONFIG.menuOpenGesture
     const isActive = reinspectContext?.isActive ?? false
     const inspectMode = reinspectContext?.inspectMode ?? 'wrapped'
     const renderCounterMode =
@@ -619,6 +656,10 @@ export function withReinspectInternal<P extends object>(
 
     const openMenuAtCursor = (event: ReactMouseEvent<HTMLDivElement>) => {
       if (!inspectorActive) {
+        return
+      }
+
+      if (!doesEventMatchMenuOpenGesture(event, menuOpenGesture)) {
         return
       }
 

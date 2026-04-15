@@ -1,6 +1,6 @@
 import type { EditableStyleProp } from './types'
 
-export const DEFAULT_EDITABLE_PROPS: EditableStyleProp[] = [
+export const DEFAULT_EDITABLE_PROPS: readonly EditableStyleProp[] = [
   'backgroundColor',
   'color',
   'fontSize',
@@ -15,7 +15,7 @@ export const DEFAULT_EDITABLE_PROPS: EditableStyleProp[] = [
   'gap',
 ]
 
-export const DEFAULT_PALETTE = [
+export const DEFAULT_PALETTE: readonly string[] = [
   '#f97316',
   '#2563eb',
   '#16a34a',

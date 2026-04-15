@@ -9,9 +9,22 @@ export default defineConfig({
     outDir: 'dist/lib',
     emptyOutDir: true,
     lib: {
-      entry: path.resolve(__dirname, 'src/reinspect/index.ts'),
+      entry: {
+        index: path.resolve(__dirname, 'src/reinspect/index.ts'),
+        'internal/auto-wrap': path.resolve(
+          __dirname,
+          'src/reinspect/internal/auto-wrap.ts',
+        ),
+      },
       formats: ['es', 'cjs'],
-      fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
+      fileName: (format, entryName) => {
+        const extension = format === 'es' ? 'js' : 'cjs'
+        if (entryName === 'index') {
+          return `index.${extension}`
+        }
+
+        return `${entryName}.${extension}`
+      },
       cssFileName: 'style',
     },
     rollupOptions: {

@@ -1,0 +1,230 @@
+import type {
+  ComponentStyleOverrides,
+  EditableStyleProp,
+  InspectMode,
+  RenderCounterMode,
+  ResolvedReinspectConfig,
+  StyleOverrideValue,
+} from '../types'
+
+export interface ReinspectState {
+  isActive: boolean
+  inspectMode: InspectMode
+  pendingInspectMode: InspectMode
+  renderCounterMode: RenderCounterMode
+  renderCountComponents: Record<string, true>
+  overrides: Record<string, ComponentStyleOverrides>
+}
+
+interface HydrateConfigAction {
+  type: 'hydrate-config'
+  config: ResolvedReinspectConfig
+}
+
+interface SetIsActiveAction {
+  type: 'set-is-active'
+  value: boolean
+}
+
+interface SetPendingInspectModeAction {
+  type: 'set-pending-inspect-mode'
+  value: InspectMode
+}
+
+interface SetRenderCounterModeAction {
+  type: 'set-render-counter-mode'
+  value: RenderCounterMode
+}
+
+interface SetRenderCountingForComponentAction {
+  type: 'set-render-counting-for-component'
+  componentName: string
+  enabled: boolean
+}
+
+interface UpdateOverrideAction {
+  type: 'update-override'
+  componentId: string
+  prop: EditableStyleProp
+  value: StyleOverrideValue | undefined
+}
+
+export type ReinspectStateAction =
+  | HydrateConfigAction
+  | SetIsActiveAction
+  | SetPendingInspectModeAction
+  | SetRenderCounterModeAction
+  | SetRenderCountingForComponentAction
+  | UpdateOverrideAction
+
+export function buildRenderCountComponentMap(
+  componentNames: readonly string[],
+): Record<string, true> {
+  const map: Record<string, true> = {}
+  for (const componentName of componentNames) {
+    map[componentName] = true
+  }
+
+  return map
+}
+
+export function buildInitialReinspectState(
+  config: ResolvedReinspectConfig,
+): ReinspectState {
+  return {
+    isActive: config.startActive,
+    inspectMode: config.inspectMode,
+    pendingInspectMode: config.inspectMode,
+    renderCounterMode: config.renderCounters,
+    renderCountComponents: buildRenderCountComponentMap(
+      config.countRendersForComponents,
+    ),
+    overrides: {},
+  }
+}
+
+function shallowEqualStringArray(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  if (left === right) {
+    return true
+  }
+
+  if (left.length !== right.length) {
+    return false
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+export function reinspectStateReducer(
+  state: ReinspectState,
+  action: ReinspectStateAction,
+): ReinspectState {
+  switch (action.type) {
+    case 'hydrate-config': {
+      const nextRenderCountComponents = buildRenderCountComponentMap(
+        action.config.countRendersForComponents,
+      )
+      const nextState: ReinspectState = {
+        ...state,
+        isActive: action.config.enabled ? state.isActive : false,
+        inspectMode: action.config.inspectMode,
+        pendingInspectMode: action.config.inspectMode,
+        renderCounterMode: action.config.renderCounters,
+        renderCountComponents: nextRenderCountComponents,
+      }
+
+      if (
+        nextState.isActive === state.isActive &&
+        nextState.inspectMode === state.inspectMode &&
+        nextState.pendingInspectMode === state.pendingInspectMode &&
+        nextState.renderCounterMode === state.renderCounterMode &&
+        shallowEqualStringArray(
+          Object.keys(nextState.renderCountComponents),
+          Object.keys(state.renderCountComponents),
+        )
+      ) {
+        return state
+      }
+
+      return nextState
+    }
+
+    case 'set-is-active':
+      if (state.isActive === action.value) {
+        return state
+      }
+      return {
+        ...state,
+        isActive: action.value,
+      }
+
+    case 'set-pending-inspect-mode':
+      if (state.pendingInspectMode === action.value) {
+        return state
+      }
+      return {
+        ...state,
+        pendingInspectMode: action.value,
+      }
+
+    case 'set-render-counter-mode':
+      if (state.renderCounterMode === action.value) {
+        return state
+      }
+      return {
+        ...state,
+        renderCounterMode: action.value,
+      }
+
+    case 'set-render-counting-for-component': {
+      if (action.enabled) {
+        if (state.renderCountComponents[action.componentName]) {
+          return state
+        }
+
+        return {
+          ...state,
+          renderCountComponents: {
+            ...state.renderCountComponents,
+            [action.componentName]: true,
+          },
+        }
+      }
+
+      if (!state.renderCountComponents[action.componentName]) {
+        return state
+      }
+
+      const nextMap = { ...state.renderCountComponents }
+      delete nextMap[action.componentName]
+      return {
+        ...state,
+        renderCountComponents: nextMap,
+      }
+    }
+
+    case 'update-override': {
+      const existingEntry = state.overrides[action.componentId] ?? {}
+      const nextEntry: ComponentStyleOverrides = { ...existingEntry }
+
+      if (action.value === undefined || action.value === null || action.value === '') {
+        delete nextEntry[action.prop]
+      } else {
+        nextEntry[action.prop] = action.value
+      }
+
+      if (Object.keys(nextEntry).length === 0) {
+        if (!state.overrides[action.componentId]) {
+          return state
+        }
+
+        const nextOverrides = { ...state.overrides }
+        delete nextOverrides[action.componentId]
+        return {
+          ...state,
+          overrides: nextOverrides,
+        }
+      }
+
+      return {
+        ...state,
+        overrides: {
+          ...state.overrides,
+          [action.componentId]: nextEntry,
+        },
+      }
+    }
+
+    default:
+      return state
+  }
+}

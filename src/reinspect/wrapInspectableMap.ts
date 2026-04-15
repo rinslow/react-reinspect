@@ -1,9 +1,7 @@
 import type { ComponentType } from 'react'
 import { withReinspect, type WithReinspectOptions } from './withReinspect'
 
-// `ComponentType<any>` keeps props inference intact across mapped components.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ComponentMap = Record<string, ComponentType<any>>
+type ComponentMap = Record<string, ComponentType<unknown>>
 
 type WrapInspectableMapOptions<T extends ComponentMap> =
   | Partial<Record<keyof T, WithReinspectOptions>>
@@ -17,6 +15,10 @@ export function wrapInspectableMap<T extends ComponentMap>(
 
   for (const key of Object.keys(componentMap) as Array<keyof T>) {
     const Component = componentMap[key]
+    if (!Component) {
+      continue
+    }
+
     const optionsForComponent =
       typeof options === 'function' ? options(key, Component) : options?.[key]
 

@@ -1,26 +1,31 @@
 import type { ComponentType } from 'react'
 import type { AutoDiscoverScope } from './types'
 
+type ComponentProps = Record<string, unknown>
+
 export type ReinspectWrapSource = 'manual' | 'auto'
 
-export interface ReinspectWrappedMetadata {
+export interface ReinspectWrappedMetadata<P extends object = ComponentProps> {
   source: ReinspectWrapSource
   scope: AutoDiscoverScope
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  original: ComponentType<any>
+  original: ComponentType<P>
 }
 
 export const REINSPECT_WRAPPED_SYMBOL = Symbol.for('reinspect.wrapped')
 
-export function getReinspectWrappedMetadata(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  component: ComponentType<any>,
-): ReinspectWrappedMetadata | undefined {
-  const maybeMetadata = (
-    component as unknown as {
-      [REINSPECT_WRAPPED_SYMBOL]?: ReinspectWrappedMetadata
-    }
-  )[REINSPECT_WRAPPED_SYMBOL]
+type WrappedMarkerCarrier<P extends object> = ComponentType<P> & {
+  [REINSPECT_WRAPPED_SYMBOL]?: ReinspectWrappedMetadata<P>
+}
 
-  return maybeMetadata
+export function getReinspectWrappedMetadata<P extends object>(
+  component: ComponentType<P>,
+): ReinspectWrappedMetadata<P> | undefined {
+  return (component as WrappedMarkerCarrier<P>)[REINSPECT_WRAPPED_SYMBOL]
+}
+
+export function setReinspectWrappedMetadata<P extends object>(
+  component: ComponentType<P>,
+  metadata: ReinspectWrappedMetadata<P>,
+): void {
+  ;(component as WrappedMarkerCarrier<P>)[REINSPECT_WRAPPED_SYMBOL] = metadata
 }

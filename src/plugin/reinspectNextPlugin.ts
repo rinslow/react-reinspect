@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 
 export interface ReinspectNextPluginOptions {
   includeThirdParty?: boolean
+  thirdPartyAllowlist?: readonly string[]
   enableInProduction?: boolean
 }
 
@@ -14,6 +15,7 @@ interface NextWebpackUseEntry {
   loader?: string
   options?: {
     includeThirdParty?: boolean
+    thirdPartyAllowlist?: readonly string[]
   }
 }
 
@@ -83,20 +85,26 @@ function addReinspectLoaderRule(
   }
 
   const nextLoaderPath = resolveNextLoaderPath()
-  const nextRules: NextWebpackRule[] = [
-    {
-      test: /\.[cm]?[jt]sx?$/,
-      enforce: 'pre',
-      exclude: /node_modules/,
-      use: [
-        {
-          loader: nextLoaderPath,
-          options: {
-            includeThirdParty: Boolean(options.includeThirdParty),
-          },
+  const reinspectRule: NextWebpackRule = {
+    test: /\.[cm]?[jt]sx?$/,
+    enforce: 'pre',
+    use: [
+      {
+        loader: nextLoaderPath,
+        options: {
+          includeThirdParty: options.includeThirdParty === true,
+          thirdPartyAllowlist: options.thirdPartyAllowlist ?? [],
         },
-      ],
-    },
+      },
+    ],
+  }
+
+  if (options.includeThirdParty !== true) {
+    reinspectRule.exclude = /node_modules/
+  }
+
+  const nextRules: NextWebpackRule[] = [
+    reinspectRule,
     ...rules,
   ]
 
@@ -123,8 +131,8 @@ export function withReinspectAutoDiscover(
           : config
 
       const shouldEnable =
-        (options.dev || Boolean(pluginOptions.enableInProduction)) &&
-        !Boolean(options.isServer)
+        (options.dev || pluginOptions.enableInProduction === true) &&
+        options.isServer !== true
 
       if (!shouldEnable) {
         return resolvedConfig

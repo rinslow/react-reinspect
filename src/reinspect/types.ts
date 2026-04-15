@@ -2,7 +2,7 @@ import type { CSSProperties, Dispatch, ReactNode, SetStateAction } from 'react'
 
 export type InspectMode = 'wrapped' | 'first-party' | 'all'
 export type AutoDiscoverScope = 'first-party' | 'third-party'
-export type RenderCaptureMode = 'attempts' | 'commits' | 'both'
+export type RenderCounterMode = 'off' | 'attempts' | 'commits' | 'both'
 
 export type EditableStyleProp =
   | 'backgroundColor'
@@ -24,17 +24,27 @@ export type ComponentStyleOverrides = Partial<
   Record<EditableStyleProp, StyleOverrideValue>
 >
 
-export interface ReinspectConfig {
+interface LegacyReinspectConfig {
+  /**
+   * @deprecated Use `renderCounters` instead.
+   */
+  shouldCountRenders?: boolean
+  /**
+   * @deprecated Use `renderCounters` instead.
+   */
+  renderCaptureMode?: Exclude<RenderCounterMode, 'off'>
+}
+
+export interface ReinspectConfig extends LegacyReinspectConfig {
   enabled?: boolean
   startActive?: boolean
   showFloatingToggle?: boolean
   inspectMode?: InspectMode
-  editableProps?: EditableStyleProp[]
-  palette?: string[]
+  editableProps?: readonly EditableStyleProp[]
+  palette?: readonly string[]
   zIndexBase?: number
-  shouldCountRenders?: boolean
-  countRendersForComponents?: string[]
-  renderCaptureMode?: RenderCaptureMode
+  renderCounters?: RenderCounterMode
+  countRendersForComponents?: readonly string[]
 }
 
 export interface ResolvedReinspectConfig {
@@ -42,12 +52,11 @@ export interface ResolvedReinspectConfig {
   startActive: boolean
   showFloatingToggle: boolean
   inspectMode: InspectMode
-  editableProps: EditableStyleProp[]
-  palette: string[]
+  editableProps: readonly EditableStyleProp[]
+  palette: readonly string[]
   zIndexBase: number
-  shouldCountRenders: boolean
-  countRendersForComponents: string[]
-  renderCaptureMode: RenderCaptureMode
+  renderCounters: RenderCounterMode
+  countRendersForComponents: readonly string[]
 }
 
 export interface ReinspectContextValue {
@@ -59,11 +68,9 @@ export interface ReinspectContextValue {
   setPendingInspectMode: Dispatch<SetStateAction<InspectMode>>
   hasPendingInspectModeChange: boolean
   applyInspectMode: () => void
-  shouldCountRenders: boolean
-  setShouldCountRenders: Dispatch<SetStateAction<boolean>>
-  renderCaptureMode: RenderCaptureMode
-  setRenderCaptureMode: Dispatch<SetStateAction<RenderCaptureMode>>
-  renderCountComponents: Record<string, boolean>
+  renderCounterMode: RenderCounterMode
+  setRenderCounterMode: Dispatch<SetStateAction<RenderCounterMode>>
+  renderCountComponents: Record<string, true>
   setRenderCountingForComponent: (componentName: string, enabled: boolean) => void
   isRenderCountingEnabledFor: (componentName: string) => boolean
   overrides: Record<string, ComponentStyleOverrides>

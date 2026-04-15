@@ -9,9 +9,5 @@
     "outDir": "./dist/plugin",
     "rootDir": "./src/plugin"
   },
-  "include": [
-    "src/plugin/reinspectAutoDiscoverPlugin.ts",
-    "src/plugin/reinspectNextPlugin.ts",
-    "src/plugin/reinspectNextAutoDiscoverLoader.ts"
-  ]
+  "include": ["src/plugin/**/*.ts"]
 }

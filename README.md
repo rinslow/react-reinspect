@@ -37,8 +37,7 @@ React DevTools is excellent for component trees and profiling.
   - Capture mode: `attempts` | `commits` | `both`
 - Flexible wrapping:
   - `withReinspect(...)`
-  - `wrapInspectableMap(...)`
-  - `autoWrapInspectable(...)` (for auto-discovery pipelines)
+  - auto-discovery wrapping via `reinspectAutoDiscoverPlugin(...)` / `withReinspectAutoDiscover(...)`
 
 ## Install
 
@@ -66,7 +65,7 @@ import react from '@vitejs/plugin-react'
 import { reinspectAutoDiscoverPlugin } from 'react-reinspect/vite-plugin'
 
 export default defineConfig({
-  plugins: [reinspectAutoDiscoverPlugin(), react()],
+  plugins: [reinspectAutoDiscoverPlugin({ include: 'first-party' }), react()],
 })
 ```
 
@@ -88,7 +87,13 @@ If your Next dev server runs with Turbopack, switch to webpack mode for this tra
 
 ## Example
 
-![screen shot example showing react-reinspect](docs/assets/screenshot-example.png)
+![react-reinspect runtime inspector example](https://cdn.jsdelivr.net/npm/react-reinspect@latest/docs/assets/screenshot-example.png)
+
+## Screenshots
+
+### Runtime inspector in-app
+
+![react-reinspect overlay, props editor, and rerender badge](https://cdn.jsdelivr.net/npm/react-reinspect@latest/docs/assets/screenshot-example.png)
 
 
 ## Agentic Quick Start
@@ -177,7 +182,9 @@ export default defineConfig({
 import { withReinspectAutoDiscover } from 'react-reinspect/next-plugin'
 
 const nextConfig = {}
-export default withReinspectAutoDiscover(nextConfig)
+export default withReinspectAutoDiscover(nextConfig, {
+  includeThirdParty: false,
+})
 
 // Next.js dev script for auto-discovery:
 // package.json -> "dev": "next dev --webpack"
@@ -205,7 +212,7 @@ const reinspectConfig: ReinspectConfig = {
   // startActive: true, // start with inspector active when page loads
   // showFloatingToggle: true, // show floating react-reinspect settings button
   // inspectMode: 'wrapped', // wrapped: only wrapped components, first-party: wrapped + components with inspectable metadata, all: all components
-  // editableProps: DEFAULT_EDITABLE_PROPS, // change the CSS props you can edit
+  // editableProps: ['padding', 'margin'], // change the CSS props you can edit
 }
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -333,16 +340,15 @@ Wrap your app root.
 
 | Option | Type | Default | Notes |
 |---|---|---|---|
-| `enabled` | `boolean` | `import.meta.env.DEV` | Master on/off. |
+| `enabled` | `boolean` | `false` | Master on/off. |
 | `startActive` | `boolean` | `true` | Initial inspector active state. |
 | `showFloatingToggle` | `boolean` | `enabled` | Show built-in settings button. |
 | `inspectMode` | `'wrapped' \| 'first-party' \| 'all'` | `'wrapped'` | Auto-wrap visibility behavior. |
-| `editableProps` | `EditableStyleProp[]` | `DEFAULT_EDITABLE_PROPS` | CSS props editable in inspector. |
-| `palette` | `string[]` | `DEFAULT_PALETTE` | Component outline/badge colors. |
+| `editableProps` | `EditableStyleProp[]` | built-in defaults | CSS props editable in inspector. |
+| `palette` | `string[]` | built-in defaults | Component outline/badge colors. |
 | `zIndexBase` | `number` | `2147483000` | Overlay stacking baseline. |
-| `shouldCountRenders` | `boolean` | `false` | Global rerender counting. |
-| `countRendersForComponents` | `string[]` | `[]` | Enable counting for specific names. |
-| `renderCaptureMode` | `'attempts' \| 'commits' \| 'both'` | `'attempts'` | Counter mode shown in badges. |
+| `renderCounters` | `'off' \| 'attempts' \| 'commits' \| 'both'` | `'off'` | Global render-counter mode. |
+| `countRendersForComponents` | `string[]` | `[]` | Component-specific counting when global mode is `off`. |
 
 ### `withReinspect(Component, options?)`
 
@@ -350,22 +356,10 @@ Wrap a component manually.
 
 `options`:
 - `name?: string`
-- `fallbackName?: string`
-- `source?: 'manual' | 'auto'`
-- `scope?: 'first-party' | 'third-party'`
 
-### `wrapInspectableMap(componentMap, options?)`
+`wrapInspectableMap` remains available as an internal utility (`react-reinspect/dist` deep-import), but is no longer part of the stable public runtime API.
 
-Batch-wrap a map of components while preserving prop types.
-
-### `autoWrapInspectable(Component, metadata)`
-
-Helper for auto-discovery transforms.
-
-`metadata`:
-- `scope: 'first-party' | 'third-party'`
-- `componentName?: string`
-- `fallbackName?: string`
+`autoWrapInspectable` is now internal-only and used by the transform plugins via `react-reinspect/internal/auto-wrap`.
 
 ### `useReinspect()`
 
@@ -373,7 +367,7 @@ Hook to read/update runtime inspector state from your own UI.
 
 ## Production Guidance
 
-- Default behavior is dev-friendly (`enabled` resolves from `import.meta.env.DEV`).
+- Default behavior is production-safe (`enabled` defaults to `false`).
 - If you want zero wrapper markup in production, gate wrapping at definition time:
 
 ```tsx
@@ -401,13 +395,3 @@ pnpm pack:check
 npm login
 pnpm publish:npm
 ```
-
-## Screenshots To Add (Recommended)
-
-If you want, share screenshots and I will wire them into this README.
-
-Suggested captures:
-- Floating settings panel open.
-- Right-click CSS editor on a real component.
-- Props inspector `Detected` tab with object/function props.
-- Rerender badges in `both` mode (`attempts | commits`).

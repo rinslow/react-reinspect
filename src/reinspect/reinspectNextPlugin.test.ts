@@ -49,7 +49,7 @@ describe('reinspectNextAutoDiscoverLoader', () => {
     )
 
     expect(transformed).toContain('autoWrapInspectable')
-    expect(transformed).toContain('from "react-reinspect"')
+    expect(transformed).toContain('from "react-reinspect/internal/auto-wrap"')
   })
 
   it('skips third-party modules by default', () => {
@@ -66,5 +66,24 @@ describe('reinspectNextAutoDiscoverLoader', () => {
     )
 
     expect(transformed).toBe(source)
+  })
+
+  it('supports third-party transforms when enabled', () => {
+    const source = `
+      const VendorCard = () => <div>card</div>
+      export default VendorCard
+    `
+
+    const transformed = reinspectNextAutoDiscoverLoader.call(
+      {
+        resourcePath: '/repo/node_modules/vendor-lib/Card.js',
+        getOptions() {
+          return { includeThirdParty: true }
+        },
+      },
+      source,
+    )
+
+    expect(transformed).toContain('autoWrapInspectable')
   })
 })

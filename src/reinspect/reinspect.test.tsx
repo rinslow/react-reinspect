@@ -6,9 +6,10 @@ import {
   ReinspectProvider,
   useReinspect,
   withReinspect,
-  wrapInspectableMap,
   type ReinspectConfig,
+  type RenderCounterMode,
 } from '.'
+import { wrapInspectableMap } from './wrapInspectableMap'
 import * as reinspectUtils from './utils'
 
 const testConfig: ReinspectConfig = {
@@ -65,6 +66,44 @@ describe('Reinspect', () => {
     })
 
     expect(screen.getByTestId('probe')).toHaveTextContent('true-9230-false')
+  })
+
+  it('reacts to provider config updates without remount', async () => {
+    const user = userEvent.setup()
+
+    function Probe() {
+      const { renderCounterMode } = useReinspect()
+      return <output data-testid="counter-mode-probe">{renderCounterMode}</output>
+    }
+
+    function Harness() {
+      const [renderCounters, setRenderCounters] =
+        useState<RenderCounterMode>('off')
+
+      return (
+        <>
+          <button type="button" onClick={() => setRenderCounters('both')}>
+            enable counters
+          </button>
+          <ReinspectProvider
+            config={{
+              enabled: true,
+              startActive: true,
+              showFloatingToggle: false,
+              renderCounters,
+            }}
+          >
+            <Probe />
+          </ReinspectProvider>
+        </>
+      )
+    }
+
+    render(<Harness />)
+    expect(screen.getByTestId('counter-mode-probe')).toHaveTextContent('off')
+
+    await user.click(screen.getByRole('button', { name: 'enable counters' }))
+    expect(screen.getByTestId('counter-mode-probe')).toHaveTextContent('both')
   })
 
   it('uses session inspect mode over config inspect mode', () => {
@@ -153,8 +192,7 @@ describe('Reinspect', () => {
       within(settingsMenu).getByTestId('reinspect-setting-inspector-active'),
     )
 
-    const demoShell = screen.getByTestId('reinspect-shell-DemoCard')
-    expect(demoShell.querySelector('.reinspect-name-badge')).toBeNull()
+    expect(screen.queryByTestId('reinspect-shell-DemoCard')).toBeNull()
     expect(
       screen.queryByRole('dialog', { name: 'DemoCard inspector controls' }),
     ).not.toBeInTheDocument()
@@ -187,14 +225,11 @@ describe('Reinspect', () => {
       within(settingsMenu).getByTestId('reinspect-setting-inspector-active'),
     )
 
-    const headerShell = screen.getByTestId('reinspect-shell-Header')
-    const bodyShell = screen.getByTestId('reinspect-shell-Body')
-
-    expect(headerShell.querySelector('.reinspect-name-badge')).toBeNull()
-    expect(bodyShell.querySelector('.reinspect-name-badge')).toBeNull()
+    expect(screen.queryByTestId('reinspect-shell-Header')).toBeNull()
+    expect(screen.queryByTestId('reinspect-shell-Body')).toBeNull()
   })
 
-  it('counts rerenders when SHOULD_COUNT_RENDERS is enabled globally', async () => {
+  it('counts rerenders when render counters are enabled globally', async () => {
     const user = userEvent.setup()
 
     const Wrapped = withReinspect(function CountedCard({
@@ -222,8 +257,9 @@ describe('Reinspect', () => {
 
     await user.click(screen.getByTestId('reinspect-floating-toggle'))
     const settingsMenu = screen.getByTestId('reinspect-settings-menu')
-    await user.click(
-      within(settingsMenu).getByTestId('reinspect-setting-should-count-renders'),
+    fireEvent.change(
+      within(settingsMenu).getByTestId('reinspect-setting-render-counters'),
+      { target: { value: 'attempts' } },
     )
 
     expect(getAttemptCount('CountedCard')).toBe(0)
@@ -289,7 +325,7 @@ describe('Reinspect', () => {
     expect(getBadgeText('PlainBody')).toBe('PlainBody')
   })
 
-  it('shows both render attempts and commit counts when RENDER_CAPTURE_MODE is both', async () => {
+  it('shows both render attempts and commit counts when render counters mode is both', async () => {
     const user = userEvent.setup()
 
     const Wrapped = withReinspect(function CounterCard({
@@ -318,12 +354,8 @@ describe('Reinspect', () => {
     const settingsMenu = screen.getByTestId('reinspect-settings-menu')
 
     fireEvent.change(
-      within(settingsMenu).getByTestId('reinspect-setting-render-capture-mode'),
+      within(settingsMenu).getByTestId('reinspect-setting-render-counters'),
       { target: { value: 'both' } },
-    )
-
-    await user.click(
-      within(settingsMenu).getByTestId('reinspect-setting-should-count-renders'),
     )
 
     expect(getBadgeText('CounterCard')).toBe('CounterCard | 0 attempts | 0 commits')

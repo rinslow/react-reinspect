@@ -1,6 +1,6 @@
 {
   "name": "react-reinspect",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Visual runtime inspector for React components with render counters and style overrides.",
   "keywords": [
     "react",
@@ -27,12 +27,18 @@
       "types": "./dist/plugin/reinspectNextPlugin.d.ts",
       "import": "./dist/plugin/reinspectNextPlugin.js"
     },
+    "./internal/auto-wrap": {
+      "types": "./dist/lib/internal/auto-wrap.d.ts",
+      "import": "./dist/lib/internal/auto-wrap.js",
+      "require": "./dist/lib/internal/auto-wrap.cjs"
+    },
     "./style.css": "./dist/lib/style.css"
   },
   "files": [
     "dist/lib",
     "dist/plugin",
-    "README.md"
+    "README.md",
+    "docs/assets"
   ],
   "sideEffects": [
     "**/*.css"

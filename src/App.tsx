@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react'
-import {
-  DEFAULT_EDITABLE_PROPS,
-  ReinspectProvider,
-  type ReinspectConfig,
-} from './reinspect'
+import { ReinspectProvider, type ReinspectConfig } from './reinspect'
+import { DEFAULT_EDITABLE_PROPS } from './reinspect/constants'
 import { TodoAddForm } from './components/TodoAddForm'
 import { TodoFilterBar } from './components/TodoFilterBar'
 import { TodoHeader } from './components/TodoHeader'

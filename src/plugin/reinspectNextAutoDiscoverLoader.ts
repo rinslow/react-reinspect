@@ -1,53 +1,19 @@
-import path from 'node:path'
 import {
-  shouldSkipThirdPartyModule,
+  normalizeModuleId,
+  isSupportedSourceFile,
+  resolveAutoDiscoverScope,
   transformModuleForAutoDiscover,
-} from './reinspectAutoDiscoverPlugin.js'
-
-type AutoDiscoverScope = 'first-party' | 'third-party'
+} from './internal/autoDiscoverTransform.js'
 
 interface ReinspectNextLoaderOptions {
   includeThirdParty?: boolean
+  thirdPartyAllowlist?: string[]
 }
 
 interface LoaderContextLike {
   resourcePath: string
   getOptions?: () => ReinspectNextLoaderOptions
   async?: () => ((error: Error | null, code?: string) => void) | undefined
-}
-
-const SUPPORTED_FILE_PATTERN = /\.[cm]?[jt]sx?$/
-
-function normalizeModuleId(id: string): string {
-  return id.split(path.sep).join('/')
-}
-
-function isSupportedSourceFile(id: string): boolean {
-  if (!SUPPORTED_FILE_PATTERN.test(id)) {
-    return false
-  }
-
-  if (id.includes('/node_modules/react-reinspect/')) {
-    return false
-  }
-
-  return true
-}
-
-function resolveAutoDiscoverScope(
-  normalizedId: string,
-  includeThirdParty: boolean,
-): AutoDiscoverScope | null {
-  const isThirdParty = normalizedId.includes('/node_modules/')
-  if (!isThirdParty) {
-    return 'first-party'
-  }
-
-  if (!includeThirdParty || shouldSkipThirdPartyModule(normalizedId)) {
-    return null
-  }
-
-  return 'third-party'
 }
 
 function runTransform(
@@ -59,8 +25,10 @@ function runTransform(
     return sourceCode
   }
 
-  const includeThirdParty = Boolean(options.includeThirdParty)
-  const scope = resolveAutoDiscoverScope(normalizedId, includeThirdParty)
+  const scope = resolveAutoDiscoverScope(normalizedId, {
+    include: options.includeThirdParty ? 'all' : 'first-party',
+    thirdPartyAllowlist: options.thirdPartyAllowlist ?? [],
+  })
   if (!scope) {
     return sourceCode
   }

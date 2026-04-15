@@ -2,7 +2,7 @@ import type {
   ComponentStyleOverrides,
   EditableStyleProp,
   InspectMode,
-  RenderCaptureMode,
+  RenderCounterMode,
   ReinspectConfig,
   ResolvedReinspectConfig,
 } from './types'
@@ -11,15 +11,29 @@ import { DEFAULT_EDITABLE_PROPS, DEFAULT_PALETTE } from './constants'
 const FALLBACK_Z_INDEX = 2147483000
 export const REINSPECT_INSPECT_MODE_STORAGE_KEY = 'reinspect.inspectMode'
 
-const VALID_INSPECT_MODES: InspectMode[] = ['wrapped', 'first-party', 'all']
-const VALID_RENDER_CAPTURE_MODES: RenderCaptureMode[] = [
+const VALID_INSPECT_MODES: readonly InspectMode[] = [
+  'wrapped',
+  'first-party',
+  'all',
+]
+const VALID_RENDER_COUNTER_MODES: readonly RenderCounterMode[] = [
+  'off',
   'attempts',
   'commits',
   'both',
 ]
 
-function resolveDefaultEnabled(): boolean {
-  return Boolean(import.meta.env?.DEV)
+let didWarnAboutLegacyRenderConfig = false
+
+function warnAboutLegacyRenderConfig(): void {
+  if (didWarnAboutLegacyRenderConfig || typeof console === 'undefined') {
+    return
+  }
+
+  didWarnAboutLegacyRenderConfig = true
+  console.warn(
+    '[react-reinspect] `shouldCountRenders` and `renderCaptureMode` are deprecated. Use `renderCounters` instead.',
+  )
 }
 
 export function isInspectMode(value: unknown): value is InspectMode {
@@ -29,12 +43,10 @@ export function isInspectMode(value: unknown): value is InspectMode {
   )
 }
 
-export function isRenderCaptureMode(
-  value: unknown,
-): value is RenderCaptureMode {
+export function isRenderCounterMode(value: unknown): value is RenderCounterMode {
   return (
     typeof value === 'string' &&
-    VALID_RENDER_CAPTURE_MODES.includes(value as RenderCaptureMode)
+    VALID_RENDER_COUNTER_MODES.includes(value as RenderCounterMode)
   )
 }
 
@@ -93,10 +105,34 @@ export function reloadWindow(): void {
   }
 }
 
+function resolveRenderCounters(config: ReinspectConfig): RenderCounterMode {
+  if (isRenderCounterMode(config.renderCounters)) {
+    return config.renderCounters
+  }
+
+  if (config.shouldCountRenders !== undefined || config.renderCaptureMode !== undefined) {
+    warnAboutLegacyRenderConfig()
+  }
+
+  if (config.shouldCountRenders === false) {
+    return 'off'
+  }
+
+  if (config.shouldCountRenders === true) {
+    return config.renderCaptureMode ?? 'attempts'
+  }
+
+  if (config.renderCaptureMode) {
+    return config.renderCaptureMode
+  }
+
+  return 'off'
+}
+
 export function resolveReinspectConfig(
   config: ReinspectConfig = {},
 ): ResolvedReinspectConfig {
-  const enabled = config.enabled ?? resolveDefaultEnabled()
+  const enabled = config.enabled ?? false
   const editableProps =
     config.editableProps && config.editableProps.length > 0
       ? config.editableProps
@@ -114,11 +150,8 @@ export function resolveReinspectConfig(
     editableProps,
     palette,
     zIndexBase: config.zIndexBase ?? FALLBACK_Z_INDEX,
-    shouldCountRenders: config.shouldCountRenders ?? false,
+    renderCounters: resolveRenderCounters(config),
     countRendersForComponents: config.countRendersForComponents ?? [],
-    renderCaptureMode: isRenderCaptureMode(config.renderCaptureMode)
-      ? config.renderCaptureMode
-      : 'attempts',
   }
 }
 
@@ -133,18 +166,18 @@ function hashString(input: string): number {
 
 export function pickColorByComponentName(
   componentName: string,
-  palette: string[],
+  palette: readonly string[],
 ): string {
   if (palette.length === 0) {
-    return DEFAULT_PALETTE[0]
+    return DEFAULT_PALETTE[0] ?? '#f97316'
   }
 
-  return palette[hashString(componentName) % palette.length]
+  return palette[hashString(componentName) % palette.length] ?? '#f97316'
 }
 
 export function buildInlineStyleOverrides(
   overrides: ComponentStyleOverrides | undefined,
-  editableProps: EditableStyleProp[],
+  editableProps: readonly EditableStyleProp[],
 ): Record<string, string | number> {
   if (!overrides) {
     return {}
@@ -172,7 +205,7 @@ export function normalizeHexColor(value: string | undefined): string {
   }
 
   if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-    const [, r, g, b] = value
+    const [, r = '0', g = '0', b = '0'] = value
     return `#${r}${r}${g}${g}${b}${b}`
   }
 

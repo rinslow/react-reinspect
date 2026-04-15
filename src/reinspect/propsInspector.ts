@@ -203,7 +203,12 @@ function toJsonSerializable(
     const maxEntries = Math.min(entries.length, MAX_SERIALIZE_OBJECT_KEYS)
 
     for (let index = 0; index < maxEntries; index += 1) {
-      const [key, nestedValue] = entries[index]
+      const entry = entries[index]
+      if (!entry) {
+        continue
+      }
+
+      const [key, nestedValue] = entry
       serializedObject[key] = toJsonSerializable(nestedValue, stack, depth + 1)
     }
 

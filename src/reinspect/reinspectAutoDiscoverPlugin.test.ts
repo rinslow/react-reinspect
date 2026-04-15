@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   shouldSkipThirdPartyModule,
   transformModuleForAutoDiscover,
-} from '../plugin/reinspectAutoDiscoverPlugin'
+} from '../plugin/internal/autoDiscoverTransform'
 
 describe('transformModuleForAutoDiscover', () => {
   it('wraps top-level PascalCase function declarations', () => {
@@ -21,7 +21,7 @@ describe('transformModuleForAutoDiscover', () => {
 
     expect(output.modified).toBe(true)
     expect(output.code).toContain(
-      "import { autoWrapInspectable } from \"react-reinspect\";",
+      "import { autoWrapInspectable } from \"react-reinspect/internal/auto-wrap\";",
     )
     expect(output.code).toContain('TodoHeader = autoWrapInspectable(TodoHeader')
   })

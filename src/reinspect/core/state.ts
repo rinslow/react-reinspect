@@ -187,11 +187,15 @@ export function reinspectStateReducer(
       }
 
     case 'set-pending-inspect-mode':
-      if (state.pendingInspectMode === action.value) {
+      if (
+        state.pendingInspectMode === action.value &&
+        state.inspectMode === action.value
+      ) {
         return state
       }
       return {
         ...state,
+        inspectMode: action.value,
         pendingInspectMode: action.value,
       }
 

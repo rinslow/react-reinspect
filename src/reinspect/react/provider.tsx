@@ -1,4 +1,5 @@
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -28,30 +29,260 @@ import {
   persistInspectMode,
   persistInspectWhitelist,
   pickColorByComponentName,
-  reloadWindow,
   resolveReinspectConfig,
 } from '../utils'
 
-const RENDER_COUNTERS_SHORT_DESCRIPTION =
-  'Controls render counting for wrapped components.'
+type SettingsTab = 'filter' | 'settings'
 
-const RENDER_COUNTERS_LONG_DESCRIPTION =
-  'Off disables global counting. Attempts, commits, and both capture rerenders after initial mount.'
-
-const INSPECT_MODE_SHORT_DESCRIPTION =
-  'Controls which components are automatically discoverable by Reinspect.'
-
-const INSPECT_MODE_LONG_DESCRIPTION =
-  'Only wrapped components uses explicit withReinspect wrappers only. All 1st-party components auto-discovers components under your source tree. All components also attempts dependency components (with safety skips).'
-
-const INSPECT_FILTER_SHORT_DESCRIPTION =
-  'Narrows inspectable components by component name patterns.'
-
-const INSPECT_FILTER_LONG_DESCRIPTION =
-  'Whitelist includes only matching component names. Blacklist hides matching component names. Blacklist takes precedence when both match.'
+function InfoHint({
+  label,
+  description,
+}: {
+  label: string
+  description: string
+}) {
+  return (
+    <span className="reinspect-inline-hint" title={description} aria-label={description}>
+      {label}
+    </span>
+  )
+}
 
 function parseFilterPatternsInput(input: string): string[] {
-  return input.split(/\r?\n/g)
+  return input
+    .split(/[\r\n,]+/g)
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0)
+}
+
+function appendUniquePatterns(
+  existingPatterns: readonly string[],
+  incomingPatterns: readonly string[],
+): string[] {
+  const nextPatterns = [...existingPatterns]
+  const seenPatterns = new Set(existingPatterns)
+
+  for (const pattern of incomingPatterns) {
+    if (seenPatterns.has(pattern)) {
+      continue
+    }
+
+    seenPatterns.add(pattern)
+    nextPatterns.push(pattern)
+  }
+
+  return nextPatterns
+}
+
+interface InspectFilterEditorProps {
+  title: string
+  info: string
+  filter: InspectFilter
+  setFilter: (
+    value: InspectFilter | ((current: InspectFilter) => InspectFilter),
+  ) => void
+  invalidPatterns: readonly string[]
+  patternsInputTestId: string
+  regexTestId: string
+  wholeWordTestId: string
+  matchCaseTestId: string
+  invalidMessageTestId: string
+}
+
+function InspectFilterEditor({
+  title,
+  info,
+  filter,
+  setFilter,
+  invalidPatterns,
+  patternsInputTestId,
+  regexTestId,
+  wholeWordTestId,
+  matchCaseTestId,
+  invalidMessageTestId,
+}: InspectFilterEditorProps) {
+  const [draftPattern, setDraftPattern] = useState('')
+  const livePatternsRef = useRef<string[]>([])
+
+  const addDraftPattern = useCallback(() => {
+    const parsedPatterns = parseFilterPatternsInput(draftPattern)
+    if (parsedPatterns.length === 0) {
+      return
+    }
+
+    livePatternsRef.current = []
+    setDraftPattern('')
+  }, [draftPattern])
+
+  const removePattern = useCallback(
+    (pattern: string) => {
+      setFilter((current) => ({
+        ...current,
+        patterns: current.patterns.filter(
+          (currentPattern) => currentPattern !== pattern,
+        ),
+      }))
+    },
+    [setFilter],
+  )
+
+  const clearPatterns = useCallback(() => {
+    setFilter((current) => ({
+      ...current,
+      patterns: [],
+    }))
+    livePatternsRef.current = []
+    setDraftPattern('')
+  }, [setFilter])
+
+  const onDraftKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') {
+      return
+    }
+
+    event.preventDefault()
+    addDraftPattern()
+  }
+
+  const onDraftPatternChange = (nextDraft: string) => {
+    const nextLivePatterns = parseFilterPatternsInput(nextDraft)
+    setDraftPattern(nextDraft)
+    setFilter((current) => {
+      const withoutLivePatterns = current.patterns.filter(
+        (pattern) => !livePatternsRef.current.includes(pattern),
+      )
+
+      return {
+        ...current,
+        patterns: appendUniquePatterns(withoutLivePatterns, nextLivePatterns),
+      }
+    })
+    livePatternsRef.current = nextLivePatterns
+  }
+
+  return (
+    <section className="reinspect-filter-section">
+      <div className="reinspect-filter-row-header">
+        <p className="reinspect-filter-title">
+          {title} <InfoHint label="?" description={info} />
+        </p>
+        <button
+          type="button"
+          className="reinspect-filter-clear-button"
+          onClick={clearPatterns}
+          disabled={filter.patterns.length === 0}
+          data-testid={`${patternsInputTestId}-clear`}
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="reinspect-filter-toolbar">
+        <span className="reinspect-filter-search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path
+              d="M10.5 3a7.5 7.5 0 015.92 12.1l4.24 4.23a1 1 0 01-1.42 1.42l-4.23-4.24A7.5 7.5 0 1110.5 3zm0 2a5.5 5.5 0 100 11 5.5 5.5 0 000-11z"
+              fill="currentColor"
+            />
+          </svg>
+        </span>
+        <input
+          data-testid={patternsInputTestId}
+          className="reinspect-filter-search-input"
+          type="search"
+          aria-label={`${title} patterns`}
+          value={draftPattern}
+          placeholder={`Add ${title.toLowerCase()} pattern`}
+          onChange={(event) => onDraftPatternChange(event.currentTarget.value)}
+          onKeyDown={onDraftKeyDown}
+        />
+
+        <button
+          type="button"
+          className="reinspect-filter-modifier"
+          data-state={filter.regex ? 'active' : 'idle'}
+          data-testid={regexTestId}
+          title="Regex"
+          aria-label={`${title} regex modifier`}
+          onClick={() =>
+            setFilter((current) => ({
+              ...current,
+              regex: !current.regex,
+            }))
+          }
+        >
+          .*
+        </button>
+        <button
+          type="button"
+          className="reinspect-filter-modifier"
+          data-state={filter.wholeWord ? 'active' : 'idle'}
+          data-testid={wholeWordTestId}
+          title="Whole word"
+          aria-label={`${title} whole-word modifier`}
+          onClick={() =>
+            setFilter((current) => ({
+              ...current,
+              wholeWord: !current.wholeWord,
+            }))
+          }
+        >
+          W
+        </button>
+        <button
+          type="button"
+          className="reinspect-filter-modifier"
+          data-state={filter.matchCase ? 'active' : 'idle'}
+          data-testid={matchCaseTestId}
+          title="Match case"
+          aria-label={`${title} case-sensitive modifier`}
+          onClick={() =>
+            setFilter((current) => ({
+              ...current,
+              matchCase: !current.matchCase,
+            }))
+          }
+        >
+          Aa
+        </button>
+        <button
+          type="button"
+          className="reinspect-filter-add-button"
+          onClick={addDraftPattern}
+          disabled={parseFilterPatternsInput(draftPattern).length === 0}
+          data-testid={`${patternsInputTestId}-add`}
+        >
+          Add
+        </button>
+      </div>
+
+      {filter.patterns.length > 0 ? (
+        <div className="reinspect-filter-chip-list">
+          {filter.patterns.map((pattern) => (
+            <span className="reinspect-filter-chip" key={pattern}>
+              <code>{pattern}</code>
+              <button
+                type="button"
+                className="reinspect-filter-chip-remove"
+                aria-label={`Remove ${pattern}`}
+                onClick={() => removePattern(pattern)}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="reinspect-setting-empty-state">No patterns configured.</p>
+      )}
+
+      {invalidPatterns.length > 0 ? (
+        <p className="reinspect-error" data-testid={invalidMessageTestId}>
+          Invalid regex patterns ignored: {invalidPatterns.join(', ')}
+        </p>
+      ) : null}
+    </section>
+  )
 }
 
 export function ReinspectProvider({
@@ -92,6 +323,7 @@ export function ReinspectProvider({
         type: 'set-pending-inspect-mode',
         value: nextValue,
       })
+      persistInspectMode(nextValue)
     },
     [state.pendingInspectMode],
   )
@@ -177,13 +409,8 @@ export function ReinspectProvider({
   const hasPendingInspectModeChange = state.pendingInspectMode !== state.inspectMode
 
   const applyInspectMode = useCallback(() => {
-    if (!hasPendingInspectModeChange) {
-      return
-    }
-
-    persistInspectMode(state.pendingInspectMode)
-    reloadWindow()
-  }, [hasPendingInspectModeChange, state.pendingInspectMode])
+    // Kept for backwards compatibility; inspect mode now applies live.
+  }, [])
 
   const inspectWhitelistMatcher = useMemo(
     () => compileInspectFilterMatcher(state.inspectWhitelist),
@@ -280,11 +507,8 @@ export function ReinspectFloatingToggle() {
     config,
     isActive,
     setIsActive,
-    inspectMode,
     pendingInspectMode,
     setPendingInspectMode,
-    hasPendingInspectModeChange,
-    applyInspectMode,
     inspectWhitelist,
     setInspectWhitelist,
     inspectWhitelistInvalidPatterns,
@@ -295,6 +519,7 @@ export function ReinspectFloatingToggle() {
     setRenderCounterMode,
   } = useReinspect()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<SettingsTab>('filter')
   const settingsRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -355,339 +580,161 @@ export function ReinspectFloatingToggle() {
           aria-label="Reinspect settings"
           data-testid="reinspect-settings-menu"
         >
-          <p className="reinspect-settings-title">Reinspect settings</p>
-
-          <label className="reinspect-settings-toggle-row">
-            <span className="reinspect-settings-toggle-label">
-              Inspector enabled
-            </span>
-            <input
-              data-testid="reinspect-setting-inspector-active"
-              type="checkbox"
-              checked={isActive}
-              onChange={(event) => setIsActive(event.currentTarget.checked)}
-            />
-          </label>
-
-          <div className="reinspect-settings-divider" />
-
-          <section className="reinspect-setting-block">
-            <header className="reinspect-setting-header">
-              <div>
-                <p className="reinspect-setting-name">INSPECT_MODE</p>
-                <p className="reinspect-setting-short-description">
-                  {INSPECT_MODE_SHORT_DESCRIPTION}
-                </p>
-              </div>
-
-              <span className="reinspect-tooltip-host">
-                <button
-                  type="button"
-                  className="reinspect-tooltip-trigger"
-                  aria-label="Explain INSPECT_MODE"
-                >
-                  ?
-                </button>
-                <span className="reinspect-tooltip-content" role="tooltip">
-                  {INSPECT_MODE_LONG_DESCRIPTION}
-                </span>
+          <div className="reinspect-settings-header-row">
+            <p className="reinspect-settings-title">Reinspect settings</p>
+            <div className="reinspect-settings-inline-switch">
+              <span className="reinspect-settings-toggle-label">
+                {isActive ? 'Enabled' : 'Disabled'}
               </span>
-            </header>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isActive}
+                aria-label="Toggle inspector enabled"
+                data-testid="reinspect-setting-inspector-active"
+                className="reinspect-switch-button"
+                data-state={isActive ? 'on' : 'off'}
+                title={isActive ? 'Disable inspector' : 'Enable inspector'}
+                onClick={() => setIsActive(!isActive)}
+              />
+            </div>
+          </div>
 
-            <label className="reinspect-settings-select-row">
-              <span className="reinspect-settings-toggle-label">Inspect Mode</span>
-              <select
-                data-testid="reinspect-setting-inspect-mode"
-                value={pendingInspectMode}
-                onChange={(event) => {
-                  const nextMode = event.currentTarget.value
-                  if (isInspectMode(nextMode)) {
-                    setPendingInspectMode(nextMode)
-                  }
-                }}
-              >
-                <option value="wrapped">Only wrapped components</option>
-                <option value="first-party">All 1st-party components</option>
-                <option value="all">All components</option>
-              </select>
-            </label>
-
+          <div
+            className="reinspect-settings-tabs"
+            role="tablist"
+            aria-label="Reinspect settings categories"
+          >
             <button
               type="button"
-              className="reinspect-apply-button"
-              data-testid="reinspect-apply-inspect-mode"
-              onClick={applyInspectMode}
-              disabled={!hasPendingInspectModeChange}
+              role="tab"
+              id="reinspect-settings-tab-filter"
+              data-testid="reinspect-settings-tab-filter"
+              data-state={activeTab === 'filter' ? 'active' : 'idle'}
+              aria-selected={activeTab === 'filter'}
+              aria-controls="reinspect-settings-panel-filter"
+              onClick={() => setActiveTab('filter')}
             >
-              Apply &amp; Reload
+              Filter
             </button>
-
-            {hasPendingInspectModeChange ? (
-              <p
-                className="reinspect-setting-note"
-                data-testid="reinspect-inspect-mode-reload-note"
-              >
-                Inspect mode changes are applied after reload.
-              </p>
-            ) : (
-              <p className="reinspect-setting-note">
-                Current mode: {inspectMode}
-              </p>
-            )}
-          </section>
-
-          <div className="reinspect-settings-divider" />
-
-          <section className="reinspect-setting-block">
-            <header className="reinspect-setting-header">
-              <div>
-                <p className="reinspect-setting-name">INSPECT_WHITELIST</p>
-                <p className="reinspect-setting-short-description">
-                  {INSPECT_FILTER_SHORT_DESCRIPTION}
-                </p>
-              </div>
-
-              <span className="reinspect-tooltip-host">
-                <button
-                  type="button"
-                  className="reinspect-tooltip-trigger"
-                  aria-label="Explain INSPECT_WHITELIST"
-                >
-                  ?
-                </button>
-                <span className="reinspect-tooltip-content" role="tooltip">
-                  {INSPECT_FILTER_LONG_DESCRIPTION}
-                </span>
-              </span>
-            </header>
-
-            <label className="reinspect-settings-select-row">
-              <span className="reinspect-settings-toggle-label">
-                Patterns (one per line)
-              </span>
-              <textarea
-                className="reinspect-settings-textarea"
-                data-testid="reinspect-setting-inspect-whitelist-patterns"
-                value={inspectWhitelist.patterns.join('\n')}
-                aria-label="Inspect whitelist patterns"
-                rows={4}
-                onChange={(event) =>
-                  setInspectWhitelist((current) => ({
-                    ...current,
-                    patterns: parseFilterPatternsInput(event.currentTarget.value),
-                  }))
-                }
-              />
-            </label>
-
-            <label className="reinspect-settings-toggle-row">
-              <span className="reinspect-settings-toggle-label">Regex</span>
-              <input
-                data-testid="reinspect-setting-inspect-whitelist-regex"
-                type="checkbox"
-                checked={inspectWhitelist.regex}
-                onChange={(event) =>
-                  setInspectWhitelist((current) => ({
-                    ...current,
-                    regex: event.currentTarget.checked,
-                  }))
-                }
-              />
-            </label>
-
-            <label className="reinspect-settings-toggle-row">
-              <span className="reinspect-settings-toggle-label">Whole word</span>
-              <input
-                data-testid="reinspect-setting-inspect-whitelist-whole-word"
-                type="checkbox"
-                checked={inspectWhitelist.wholeWord}
-                onChange={(event) =>
-                  setInspectWhitelist((current) => ({
-                    ...current,
-                    wholeWord: event.currentTarget.checked,
-                  }))
-                }
-              />
-            </label>
-
-            <label className="reinspect-settings-toggle-row">
-              <span className="reinspect-settings-toggle-label">Match case</span>
-              <input
-                data-testid="reinspect-setting-inspect-whitelist-match-case"
-                type="checkbox"
-                checked={inspectWhitelist.matchCase}
-                onChange={(event) =>
-                  setInspectWhitelist((current) => ({
-                    ...current,
-                    matchCase: event.currentTarget.checked,
-                  }))
-                }
-              />
-            </label>
-
-            {inspectWhitelistInvalidPatterns.length > 0 ? (
-              <p
-                className="reinspect-error"
-                data-testid="reinspect-setting-inspect-whitelist-invalid"
-              >
-                Invalid regex patterns ignored:{' '}
-                {inspectWhitelistInvalidPatterns.join(', ')}
-              </p>
-            ) : (
-              <p className="reinspect-setting-note">
-                Whitelist is empty until at least one valid pattern is provided.
-              </p>
-            )}
-          </section>
+            <button
+              type="button"
+              role="tab"
+              id="reinspect-settings-tab-settings"
+              data-testid="reinspect-settings-tab-settings"
+              data-state={activeTab === 'settings' ? 'active' : 'idle'}
+              aria-selected={activeTab === 'settings'}
+              aria-controls="reinspect-settings-panel-settings"
+              onClick={() => setActiveTab('settings')}
+            >
+              Settings
+            </button>
+          </div>
 
           <div className="reinspect-settings-divider" />
 
-          <section className="reinspect-setting-block">
-            <header className="reinspect-setting-header">
-              <div>
-                <p className="reinspect-setting-name">INSPECT_BLACKLIST</p>
-                <p className="reinspect-setting-short-description">
-                  {INSPECT_FILTER_SHORT_DESCRIPTION}
-                </p>
-              </div>
-
-              <span className="reinspect-tooltip-host">
-                <button
-                  type="button"
-                  className="reinspect-tooltip-trigger"
-                  aria-label="Explain INSPECT_BLACKLIST"
-                >
-                  ?
-                </button>
-                <span className="reinspect-tooltip-content" role="tooltip">
-                  {INSPECT_FILTER_LONG_DESCRIPTION}
-                </span>
-              </span>
-            </header>
-
-            <label className="reinspect-settings-select-row">
-              <span className="reinspect-settings-toggle-label">
-                Patterns (one per line)
-              </span>
-              <textarea
-                className="reinspect-settings-textarea"
-                data-testid="reinspect-setting-inspect-blacklist-patterns"
-                value={inspectBlacklist.patterns.join('\n')}
-                aria-label="Inspect blacklist patterns"
-                rows={4}
-                onChange={(event) =>
-                  setInspectBlacklist((current) => ({
-                    ...current,
-                    patterns: parseFilterPatternsInput(event.currentTarget.value),
-                  }))
-                }
+          {activeTab === 'filter' ? (
+            <div
+              className="reinspect-settings-tab-panel"
+              role="tabpanel"
+              id="reinspect-settings-panel-filter"
+              aria-labelledby="reinspect-settings-tab-filter"
+            >
+              <InspectFilterEditor
+                title="Include"
+                info="Only matching component names remain inspectable."
+                filter={inspectWhitelist}
+                setFilter={setInspectWhitelist}
+                invalidPatterns={inspectWhitelistInvalidPatterns}
+                patternsInputTestId="reinspect-setting-inspect-whitelist-patterns"
+                regexTestId="reinspect-setting-inspect-whitelist-regex"
+                wholeWordTestId="reinspect-setting-inspect-whitelist-whole-word"
+                matchCaseTestId="reinspect-setting-inspect-whitelist-match-case"
+                invalidMessageTestId="reinspect-setting-inspect-whitelist-invalid"
               />
-            </label>
 
-            <label className="reinspect-settings-toggle-row">
-              <span className="reinspect-settings-toggle-label">Regex</span>
-              <input
-                data-testid="reinspect-setting-inspect-blacklist-regex"
-                type="checkbox"
-                checked={inspectBlacklist.regex}
-                onChange={(event) =>
-                  setInspectBlacklist((current) => ({
-                    ...current,
-                    regex: event.currentTarget.checked,
-                  }))
-                }
+              <InspectFilterEditor
+                title="Exclude"
+                info="Matching component names are hidden from inspection."
+                filter={inspectBlacklist}
+                setFilter={setInspectBlacklist}
+                invalidPatterns={inspectBlacklistInvalidPatterns}
+                patternsInputTestId="reinspect-setting-inspect-blacklist-patterns"
+                regexTestId="reinspect-setting-inspect-blacklist-regex"
+                wholeWordTestId="reinspect-setting-inspect-blacklist-whole-word"
+                matchCaseTestId="reinspect-setting-inspect-blacklist-match-case"
+                invalidMessageTestId="reinspect-setting-inspect-blacklist-invalid"
               />
-            </label>
 
-            <label className="reinspect-settings-toggle-row">
-              <span className="reinspect-settings-toggle-label">Whole word</span>
-              <input
-                data-testid="reinspect-setting-inspect-blacklist-whole-word"
-                type="checkbox"
-                checked={inspectBlacklist.wholeWord}
-                onChange={(event) =>
-                  setInspectBlacklist((current) => ({
-                    ...current,
-                    wholeWord: event.currentTarget.checked,
-                  }))
-                }
-              />
-            </label>
-
-            <label className="reinspect-settings-toggle-row">
-              <span className="reinspect-settings-toggle-label">Match case</span>
-              <input
-                data-testid="reinspect-setting-inspect-blacklist-match-case"
-                type="checkbox"
-                checked={inspectBlacklist.matchCase}
-                onChange={(event) =>
-                  setInspectBlacklist((current) => ({
-                    ...current,
-                    matchCase: event.currentTarget.checked,
-                  }))
-                }
-              />
-            </label>
-
-            {inspectBlacklistInvalidPatterns.length > 0 ? (
-              <p
-                className="reinspect-error"
-                data-testid="reinspect-setting-inspect-blacklist-invalid"
-              >
-                Invalid regex patterns ignored:{' '}
-                {inspectBlacklistInvalidPatterns.join(', ')}
-              </p>
-            ) : (
               <p className="reinspect-setting-note">
-                Blacklist patterns hide matching components from inspection.
+                Exclude patterns override include patterns.
               </p>
-            )}
-          </section>
 
-          <div className="reinspect-settings-divider" />
+              <section className="reinspect-setting-block">
+                <label className="reinspect-settings-select-row">
+                  <span className="reinspect-settings-toggle-label">
+                    Component scope{' '}
+                    <InfoHint
+                      label="?"
+                      description="Choose which component groups can be inspected."
+                    />
+                  </span>
+                  <select
+                    data-testid="reinspect-setting-inspect-mode"
+                    value={pendingInspectMode}
+                    onChange={(event) => {
+                      const nextMode = event.currentTarget.value
+                      if (isInspectMode(nextMode)) {
+                        setPendingInspectMode(nextMode)
+                      }
+                    }}
+                  >
+                    <option value="wrapped">Only wrapped components</option>
+                    <option value="first-party">All 1st-party components</option>
+                    <option value="all">All components</option>
+                  </select>
+                </label>
+              </section>
+            </div>
+          ) : (
+            <div
+              className="reinspect-settings-tab-panel"
+              role="tabpanel"
+              id="reinspect-settings-panel-settings"
+              aria-labelledby="reinspect-settings-tab-settings"
+            >
+              <section className="reinspect-setting-block">
+                <label className="reinspect-settings-select-row">
+                  <span className="reinspect-settings-toggle-label">
+                    Render counter mode{' '}
+                    <InfoHint
+                      label="?"
+                      description="Pick whether render attempts, commits, both, or no counters are shown."
+                    />
+                  </span>
+                  <select
+                    data-testid="reinspect-setting-render-counters"
+                    value={renderCounterMode}
+                    onChange={(event) => {
+                      const nextMode = event.currentTarget.value
+                      if (isRenderCounterMode(nextMode)) {
+                        setRenderCounterMode(nextMode)
+                      }
+                    }}
+                  >
+                    <option value="off">Off</option>
+                    <option value="attempts">Render attempts</option>
+                    <option value="commits">Committed renders</option>
+                    <option value="both">Both</option>
+                  </select>
+                </label>
 
-          <section className="reinspect-setting-block">
-            <header className="reinspect-setting-header">
-              <div>
-                <p className="reinspect-setting-name">RENDER_COUNTERS</p>
-                <p className="reinspect-setting-short-description">
-                  {RENDER_COUNTERS_SHORT_DESCRIPTION}
+                <p className="reinspect-setting-note">
+                  Per-component capture can be toggled from each component menu.
                 </p>
-              </div>
-
-              <span className="reinspect-tooltip-host">
-                <button
-                  type="button"
-                  className="reinspect-tooltip-trigger"
-                  aria-label="Explain RENDER_COUNTERS"
-                >
-                  ?
-                </button>
-                <span className="reinspect-tooltip-content" role="tooltip">
-                  {RENDER_COUNTERS_LONG_DESCRIPTION}
-                </span>
-              </span>
-            </header>
-
-            <label className="reinspect-settings-select-row">
-              <span className="reinspect-settings-toggle-label">Counter mode</span>
-              <select
-                data-testid="reinspect-setting-render-counters"
-                value={renderCounterMode}
-                onChange={(event) => {
-                  const nextMode = event.currentTarget.value
-                  if (isRenderCounterMode(nextMode)) {
-                    setRenderCounterMode(nextMode)
-                  }
-                }}
-              >
-                <option value="off">Off</option>
-                <option value="attempts">Render attempts</option>
-                <option value="commits">Committed renders</option>
-                <option value="both">Both</option>
-              </select>
-            </label>
-          </section>
+              </section>
+            </div>
+          )}
         </div>
       ) : null}
     </div>

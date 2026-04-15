@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
   ReinspectProvider,
   useReinspect,
@@ -126,17 +126,15 @@ describe('Reinspect', () => {
     expect(screen.getByTestId('inspect-mode-probe')).toHaveTextContent('all')
   })
 
-  it('applies inspect mode through settings and requests reload', async () => {
+  it('applies inspect mode through settings live and persists it', async () => {
     const user = userEvent.setup()
-    const reloadSpy = vi
-      .spyOn(reinspectUtils, 'reloadWindow')
-      .mockImplementation(() => undefined)
 
-    const Wrapped = withReinspect(function ModeCard() {
-      return <p>mode target</p>
-    })
+    function Probe() {
+      const { inspectMode } = useReinspect()
+      return <output data-testid="inspect-mode-live-probe">{inspectMode}</output>
+    }
 
-    renderWithReinspect(<Wrapped />, {
+    renderWithReinspect(<Probe />, {
       enabled: true,
       inspectMode: 'wrapped',
       showFloatingToggle: true,
@@ -148,25 +146,20 @@ describe('Reinspect', () => {
     const select = within(settingsMenu).getByTestId(
       'reinspect-setting-inspect-mode',
     )
-    const applyButton = within(settingsMenu).getByTestId(
-      'reinspect-apply-inspect-mode',
+    expect(screen.getByTestId('inspect-mode-live-probe')).toHaveTextContent(
+      'wrapped',
     )
 
-    expect(applyButton).toBeDisabled()
-
     fireEvent.change(select, { target: { value: 'first-party' } })
-    expect(applyButton).toBeEnabled()
-
-    await user.click(applyButton)
+    expect(screen.getByTestId('inspect-mode-live-probe')).toHaveTextContent(
+      'first-party',
+    )
 
     expect(
       window.sessionStorage.getItem(
         reinspectUtils.REINSPECT_INSPECT_MODE_STORAGE_KEY,
       ),
     ).toBe('first-party')
-    expect(reloadSpy).toHaveBeenCalledTimes(1)
-
-    reloadSpy.mockRestore()
   })
 
   it('applies inspect whitelist changes live and persists them for the session', async () => {
@@ -217,10 +210,19 @@ describe('Reinspect', () => {
       }),
     )
 
-    fireEvent.change(whitelistInput, { target: { value: '' } })
+    await user.click(
+      within(settingsMenu).getByTestId(
+        'reinspect-setting-inspect-whitelist-patterns-clear',
+      ),
+    )
     expect(screen.getByTestId('reinspect-shell-BlockedCard')).toBeInTheDocument()
 
     fireEvent.change(whitelistInput, { target: { value: 'AllowedCard' } })
+    await user.click(
+      within(settingsMenu).getByTestId(
+        'reinspect-setting-inspect-whitelist-patterns-add',
+      ),
+    )
     firstRender.unmount()
 
     renderWithReinspect(
@@ -316,6 +318,11 @@ describe('Reinspect', () => {
         'reinspect-setting-inspect-whitelist-patterns',
       ),
       { target: { value: '[' } },
+    )
+    await user.click(
+      within(settingsMenu).getByTestId(
+        'reinspect-setting-inspect-whitelist-patterns-add',
+      ),
     )
 
     expect(
@@ -414,6 +421,9 @@ describe('Reinspect', () => {
 
     await user.click(screen.getByTestId('reinspect-floating-toggle'))
     const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+    await user.click(
+      within(settingsMenu).getByTestId('reinspect-settings-tab-settings'),
+    )
     fireEvent.change(
       within(settingsMenu).getByTestId('reinspect-setting-render-counters'),
       { target: { value: 'attempts' } },
@@ -509,6 +519,9 @@ describe('Reinspect', () => {
 
     await user.click(screen.getByTestId('reinspect-floating-toggle'))
     const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+    await user.click(
+      within(settingsMenu).getByTestId('reinspect-settings-tab-settings'),
+    )
 
     fireEvent.change(
       within(settingsMenu).getByTestId('reinspect-setting-render-counters'),

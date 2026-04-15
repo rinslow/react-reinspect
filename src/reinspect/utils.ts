@@ -14,7 +14,10 @@ import type {
   ReinspectConfig,
   ResolvedReinspectConfig,
 } from './types'
-import { DEFAULT_EDITABLE_PROPS } from './constants'
+import {
+  DEFAULT_EDITABLE_PROPS,
+  REINSPECT_FALLBACK_COLOR_INPUT_HEX,
+} from './constants'
 
 const FALLBACK_Z_INDEX = 2147483000
 export const REINSPECT_INSPECT_MODE_STORAGE_KEY = 'reinspect.inspectMode'
@@ -684,7 +687,19 @@ export function resolveColorInputValue(value: string | undefined): string {
     }
   }
 
-  return '#1f2937'
+  const tokenFallbackColor = resolveColorUsingBrowserParser(
+    'var(--reinspect-menu-text)',
+  )
+  if (tokenFallbackColor) {
+    return tokenFallbackColor
+  }
+
+  const systemFallbackColor = resolveColorUsingBrowserParser('CanvasText')
+  if (systemFallbackColor) {
+    return systemFallbackColor
+  }
+
+  return REINSPECT_FALLBACK_COLOR_INPUT_HEX
 }
 
 export function normalizeHexColor(value: string | undefined): string {

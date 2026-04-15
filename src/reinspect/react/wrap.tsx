@@ -17,6 +17,7 @@ import {
   COLOR_STYLE_PROPS,
   NUMERIC_STYLE_PROPS,
   OPACITY_STYLE_PROP,
+  REINSPECT_DEFAULT_RUNTIME_COLOR,
 } from '../constants'
 import { ReinspectContext } from './context'
 import {
@@ -51,6 +52,10 @@ import {
 } from '../core/renderCounter'
 import { RenderCountBadge, renderPropsValueTree } from './overlay'
 import { highlightCode } from '../syntaxHighlight'
+import {
+  focusFirstFocusableElement,
+  trapFocusWithinContainer,
+} from './focusTrap'
 
 export interface WithReinspectInternalOptions {
   componentName?: string
@@ -338,9 +343,11 @@ export function withReinspectInternal<P extends object>(
 
   function ReinspectWrappedComponent(props: P) {
     const instanceIdRef = useRef<string | null>(null)
+    const shellRef = useRef<HTMLDivElement | null>(null)
     const menuRef = useRef<HTMLDivElement | null>(null)
     const editModalRef = useRef<HTMLDivElement | null>(null)
     const rawJsonPreviewRef = useRef<HTMLPreElement | null>(null)
+    const wasMenuOpenRef = useRef(false)
 
     const [menuPosition, setMenuPosition] = useState<{
       x: number
@@ -377,7 +384,7 @@ export function withReinspectInternal<P extends object>(
     const config = reinspectContext?.config ?? FALLBACK_CONFIG
     const getColor =
       reinspectContext?.getColor ??
-      (() => '#f97316')
+      (() => REINSPECT_DEFAULT_RUNTIME_COLOR)
     const menuTheme = reinspectContext?.menuTheme ?? 'light'
     const menuOpenGesture =
       reinspectContext?.menuOpenGesture ?? FALLBACK_CONFIG.menuOpenGesture
@@ -586,6 +593,50 @@ export function withReinspectInternal<P extends object>(
         setMenuPosition(nextPosition)
       }
     }, [menuOpen, menuPosition])
+
+    useEffect(() => {
+      if (!menuOpen || editingPropKey || !menuRef.current) {
+        return undefined
+      }
+
+      const menuElement = menuRef.current
+      focusFirstFocusableElement(menuElement)
+
+      const handleFocusTrap = (event: KeyboardEvent) => {
+        trapFocusWithinContainer(event, menuElement)
+      }
+
+      document.addEventListener('keydown', handleFocusTrap)
+      return () => {
+        document.removeEventListener('keydown', handleFocusTrap)
+      }
+    }, [menuOpen, editingPropKey])
+
+    useEffect(() => {
+      if (!editingPropKey || !editModalRef.current) {
+        return undefined
+      }
+
+      const modalElement = editModalRef.current
+      focusFirstFocusableElement(modalElement)
+
+      const handleFocusTrap = (event: KeyboardEvent) => {
+        trapFocusWithinContainer(event, modalElement)
+      }
+
+      document.addEventListener('keydown', handleFocusTrap)
+      return () => {
+        document.removeEventListener('keydown', handleFocusTrap)
+        menuRef.current?.focus()
+      }
+    }, [editingPropKey])
+
+    useEffect(() => {
+      if (wasMenuOpenRef.current && !menuOpen) {
+        shellRef.current?.focus()
+      }
+      wasMenuOpenRef.current = menuOpen
+    }, [menuOpen])
 
     const shellStyle = {
       '--reinspect-color': borderColor,
@@ -940,7 +991,9 @@ export function withReinspectInternal<P extends object>(
         className="reinspect-menu"
         data-reinspect-theme={menuTheme}
         role="dialog"
+        aria-modal="true"
         aria-label={`${componentName} controls`}
+        tabIndex={-1}
         onMouseDown={(event) => {
           event.stopPropagation()
         }}
@@ -959,7 +1012,14 @@ export function withReinspectInternal<P extends object>(
       >
         <div className="reinspect-menu-header">
           <div className="reinspect-menu-title-wrap">
-            <p className="reinspect-menu-title">{componentName}</p>
+            <div className="reinspect-menu-title-row">
+              <p className="reinspect-menu-title">{componentName}</p>
+              <span
+                className="reinspect-menu-title-color-chip"
+                aria-hidden="true"
+                title={`${componentName} color`}
+              />
+            </div>
             <p className="reinspect-menu-subtitle">Component controls</p>
           </div>
           <button
@@ -1527,6 +1587,7 @@ export function withReinspectInternal<P extends object>(
               className="reinspect-modal"
               data-reinspect-theme={menuTheme}
               ref={editModalRef}
+              tabIndex={-1}
             >
               <p className="reinspect-menu-title">Edit prop: {editingPropKey}</p>
               <label htmlFor={`${instanceId}-prop-edit-json`}>JSON value</label>
@@ -1631,11 +1692,13 @@ export function withReinspectInternal<P extends object>(
 
     return (
       <div
+        ref={shellRef}
         className="reinspect-shell"
         data-reinspect-component={componentName}
         data-reinspect-active={inspectorActive}
         data-testid={`reinspect-shell-${componentName}`}
         style={shellStyle}
+        tabIndex={-1}
         onContextMenu={openMenuAtCursor}
       >
         {inspectorActive ? (

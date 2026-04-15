@@ -44,18 +44,42 @@
   --reinspect-interactive-border-active: var(--reinspect-brand-500);
   --reinspect-interactive-text: var(--reinspect-menu-text);
   --reinspect-interactive-text-active: var(--reinspect-brand-700);
-  --reinspect-prism-bg: #f5f5f5;
-  --reinspect-prism-text: #1f1f1f;
-  --reinspect-prism-comment: #008000;
-  --reinspect-prism-keyword: #0000ff;
-  --reinspect-prism-string: #a31515;
-  --reinspect-prism-number: #098658;
-  --reinspect-prism-boolean: #0000ff;
-  --reinspect-prism-function: #795e26;
-  --reinspect-prism-property: #001080;
-  --reinspect-prism-operator: #1f1f1f;
-  --reinspect-prism-punctuation: #1f1f1f;
-  --reinspect-prism-constant: #0070c1;
+  --reinspect-prism-bg: color-mix(
+    in oklch,
+    var(--reinspect-menu-surface-strong) 74%,
+    white
+  );
+  --reinspect-prism-text: var(--reinspect-menu-text);
+  --reinspect-prism-comment: var(--reinspect-menu-text-soft);
+  --reinspect-prism-keyword: var(--reinspect-brand-700);
+  --reinspect-prism-string: color-mix(
+    in oklch,
+    var(--reinspect-semantic-error) 70%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-number: color-mix(
+    in oklch,
+    var(--reinspect-semantic-success) 76%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-boolean: var(--reinspect-prism-keyword);
+  --reinspect-prism-function: color-mix(
+    in oklch,
+    var(--reinspect-semantic-warning) 72%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-property: color-mix(
+    in oklch,
+    var(--reinspect-brand-600) 74%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-operator: var(--reinspect-menu-text);
+  --reinspect-prism-punctuation: var(--reinspect-menu-text);
+  --reinspect-prism-constant: color-mix(
+    in oklch,
+    var(--reinspect-brand-500) 78%,
+    var(--reinspect-menu-text)
+  );
 
   --reinspect-semantic-error: oklch(0.62 0.165 20);
   --reinspect-semantic-success: oklch(0.67 0.115 158);
@@ -122,18 +146,46 @@
   --reinspect-interactive-border-active: var(--reinspect-brand-400);
   --reinspect-interactive-text: var(--reinspect-menu-text);
   --reinspect-interactive-text-active: oklch(0.966 0.014 252);
-  --reinspect-prism-bg: #1e1e1e;
-  --reinspect-prism-text: #d4d4d4;
-  --reinspect-prism-comment: #6a9955;
-  --reinspect-prism-keyword: #569cd6;
-  --reinspect-prism-string: #ce9178;
-  --reinspect-prism-number: #b5cea8;
-  --reinspect-prism-boolean: #569cd6;
-  --reinspect-prism-function: #dcdcaa;
-  --reinspect-prism-property: #9cdcfe;
-  --reinspect-prism-operator: #d4d4d4;
-  --reinspect-prism-punctuation: #d4d4d4;
-  --reinspect-prism-constant: #4fc1ff;
+  --reinspect-prism-bg: color-mix(
+    in oklch,
+    var(--reinspect-menu-surface) 88%,
+    black
+  );
+  --reinspect-prism-text: var(--reinspect-menu-text);
+  --reinspect-prism-comment: color-mix(
+    in oklch,
+    var(--reinspect-menu-text-soft) 82%,
+    white
+  );
+  --reinspect-prism-keyword: var(--reinspect-brand-400);
+  --reinspect-prism-string: color-mix(
+    in oklch,
+    var(--reinspect-semantic-warning) 56%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-number: color-mix(
+    in oklch,
+    var(--reinspect-semantic-success) 62%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-boolean: var(--reinspect-prism-keyword);
+  --reinspect-prism-function: color-mix(
+    in oklch,
+    var(--reinspect-semantic-warning) 64%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-property: color-mix(
+    in oklch,
+    var(--reinspect-brand-400) 70%,
+    var(--reinspect-menu-text)
+  );
+  --reinspect-prism-operator: var(--reinspect-menu-text);
+  --reinspect-prism-punctuation: var(--reinspect-menu-text);
+  --reinspect-prism-constant: color-mix(
+    in oklch,
+    var(--reinspect-brand-400) 84%,
+    var(--reinspect-menu-text)
+  );
 }
 
 .reinspect-shell,
@@ -292,6 +344,22 @@
   font-size: 19px;
   line-height: 1.1;
   letter-spacing: -0.014em;
+}
+
+.reinspect-menu-title-row {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reinspect-menu-title-color-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid color-mix(in oklab, var(--reinspect-color) 65%, black 35%);
+  background: var(--reinspect-color);
+  flex: 0 0 auto;
 }
 
 .reinspect-menu-title-wrap {
@@ -1368,20 +1436,37 @@
   right: 18px;
   bottom: 18px;
   z-index: 2147483647;
-  border: none;
+  border: 1px solid
+    color-mix(
+      in oklch,
+      var(--reinspect-brand-500) 56%,
+      var(--reinspect-menu-border-strong)
+    );
   border-radius: 999px;
   padding: 10px 15px;
-  background: linear-gradient(
-    120deg,
-    var(--reinspect-brand-600),
-    var(--reinspect-brand-500)
-  );
-  color: var(--reinspect-on-brand);
+  background: var(--reinspect-brand-soft);
+  color: var(--reinspect-interactive-text-active);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: 0.03em;
   cursor: pointer;
-  box-shadow: 0 10px 18px oklch(0.255 0.02 248 / 0.28);
+  box-shadow:
+    0 10px 18px -12px oklch(0.255 0.02 248 / 0.4),
+    0 2px 8px -6px oklch(0.255 0.02 248 / 0.34);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.reinspect-floating-toggle:hover {
+  background: var(--reinspect-brand-soft-hover);
+  border-color: var(--reinspect-brand-500);
+}
+
+.reinspect-floating-toggle:focus-visible {
+  outline: 2px solid var(--reinspect-focus-ring);
+  outline-offset: 2px;
 }
 
 .reinspect-floating-root {

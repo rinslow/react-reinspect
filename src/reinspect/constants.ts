@@ -15,6 +15,9 @@ export const DEFAULT_EDITABLE_PROPS: readonly EditableStyleProp[] = [
   'gap',
 ]
 
+export const REINSPECT_DEFAULT_RUNTIME_COLOR = 'var(--reinspect-brand-500)'
+export const REINSPECT_FALLBACK_COLOR_INPUT_HEX = '#1f2937'
+
 export const COLOR_STYLE_PROPS = new Set<EditableStyleProp>([
   'backgroundColor',
   'color',

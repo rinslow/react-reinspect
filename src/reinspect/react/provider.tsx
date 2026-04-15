@@ -24,6 +24,10 @@ import type {
 import { ReinspectContext } from './context'
 import { useReinspect } from '../useReinspect'
 import {
+  focusFirstFocusableElement,
+  trapFocusWithinContainer,
+} from './focusTrap'
+import {
   compileInspectFilterMatcher,
   DEFAULT_MENU_OPEN_MODIFIERS,
   isComponentNameInspectableByFilters,
@@ -662,7 +666,10 @@ export function ReinspectFloatingToggle() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('filter')
   const [isRecordingMenuModifierMacro, setIsRecordingMenuModifierMacro] =
     useState(false)
+  const toggleButtonRef = useRef<HTMLButtonElement | null>(null)
   const settingsRef = useRef<HTMLDivElement | null>(null)
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null)
+  const wasSettingsOpenRef = useRef(false)
 
   useEffect(() => {
     if (!isSettingsOpen) {
@@ -695,6 +702,31 @@ export function ReinspectFloatingToggle() {
       document.removeEventListener('mousedown', closeIfClickedOutside)
       document.removeEventListener('keydown', closeOnEscape)
     }
+  }, [isSettingsOpen])
+
+  useEffect(() => {
+    if (!isSettingsOpen || !settingsMenuRef.current) {
+      return undefined
+    }
+
+    const menuElement = settingsMenuRef.current
+    focusFirstFocusableElement(menuElement)
+
+    const handleFocusTrap = (event: KeyboardEvent) => {
+      trapFocusWithinContainer(event, menuElement)
+    }
+
+    document.addEventListener('keydown', handleFocusTrap)
+    return () => {
+      document.removeEventListener('keydown', handleFocusTrap)
+    }
+  }, [isSettingsOpen])
+
+  useEffect(() => {
+    if (wasSettingsOpenRef.current && !isSettingsOpen) {
+      toggleButtonRef.current?.focus()
+    }
+    wasSettingsOpenRef.current = isSettingsOpen
   }, [isSettingsOpen])
 
   useEffect(() => {
@@ -736,6 +768,7 @@ export function ReinspectFloatingToggle() {
     >
       <button
         type="button"
+        ref={toggleButtonRef}
         className="reinspect-floating-toggle"
         data-reinspect-theme={menuTheme}
         data-testid="reinspect-floating-toggle"
@@ -749,10 +782,13 @@ export function ReinspectFloatingToggle() {
       {isSettingsOpen ? (
         <div
           id="reinspect-settings-menu"
+          ref={settingsMenuRef}
           className="reinspect-settings-menu"
           data-reinspect-theme={menuTheme}
           role="dialog"
+          aria-modal="true"
           aria-label="Reinspect settings"
+          tabIndex={-1}
           data-testid="reinspect-settings-menu"
         >
           <div className="reinspect-settings-header-row">

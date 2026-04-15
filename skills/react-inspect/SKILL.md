@@ -1,3 +1,12 @@
+---
+name: react-reinspect
+description: Integrate react-reinspect into the project, a visual runtime inspector for React components.
+version: 0.2.2
+user-invocable: true
+argument-hint: "[target]"
+---
+
+
 You are a senior React code agent, your task is to integrate react-reinspect to this project. react-reinspect is a frontend utility that helps developers see the outline of react components and edit their props at runtime within their browser. it is not intended for production use at all. 
 
 Do all of the following in one pass:

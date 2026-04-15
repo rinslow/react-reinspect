@@ -4,6 +4,15 @@ export type InspectMode = 'wrapped' | 'first-party' | 'all'
 export type AutoDiscoverScope = 'first-party' | 'third-party'
 export type RenderCounterMode = 'off' | 'attempts' | 'commits' | 'both'
 
+export interface InspectFilter {
+  patterns: readonly string[]
+  regex: boolean
+  wholeWord: boolean
+  matchCase: boolean
+}
+
+export type InspectFilterConfig = Partial<InspectFilter>
+
 export type EditableStyleProp =
   | 'backgroundColor'
   | 'color'
@@ -40,6 +49,8 @@ export interface ReinspectConfig extends LegacyReinspectConfig {
   startActive?: boolean
   showFloatingToggle?: boolean
   inspectMode?: InspectMode
+  inspectWhitelist?: InspectFilterConfig
+  inspectBlacklist?: InspectFilterConfig
   editableProps?: readonly EditableStyleProp[]
   palette?: readonly string[]
   zIndexBase?: number
@@ -52,6 +63,8 @@ export interface ResolvedReinspectConfig {
   startActive: boolean
   showFloatingToggle: boolean
   inspectMode: InspectMode
+  inspectWhitelist: InspectFilter
+  inspectBlacklist: InspectFilter
   editableProps: readonly EditableStyleProp[]
   palette: readonly string[]
   zIndexBase: number
@@ -68,6 +81,13 @@ export interface ReinspectContextValue {
   setPendingInspectMode: Dispatch<SetStateAction<InspectMode>>
   hasPendingInspectModeChange: boolean
   applyInspectMode: () => void
+  inspectWhitelist: InspectFilter
+  setInspectWhitelist: Dispatch<SetStateAction<InspectFilter>>
+  inspectWhitelistInvalidPatterns: readonly string[]
+  inspectBlacklist: InspectFilter
+  setInspectBlacklist: Dispatch<SetStateAction<InspectFilter>>
+  inspectBlacklistInvalidPatterns: readonly string[]
+  isComponentInspectableByFilters: (componentName: string) => boolean
   renderCounterMode: RenderCounterMode
   setRenderCounterMode: Dispatch<SetStateAction<RenderCounterMode>>
   renderCountComponents: Record<string, true>

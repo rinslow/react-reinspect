@@ -64,6 +64,18 @@ const FALLBACK_CONFIG = {
   startActive: false,
   showFloatingToggle: false,
   inspectMode: 'wrapped' as const,
+  inspectWhitelist: {
+    patterns: [] as const,
+    regex: false,
+    wholeWord: false,
+    matchCase: false,
+  },
+  inspectBlacklist: {
+    patterns: [] as const,
+    regex: false,
+    wholeWord: false,
+    matchCase: false,
+  },
   editableProps: [] as const,
   palette: [] as const,
   zIndexBase: 0,
@@ -238,7 +250,13 @@ export function withReinspectInternal<P extends object>(
       requestedScope,
       inspectMode,
     )
-    const inspectorActive = config.enabled && isActive && inspectableByCurrentMode
+    const inspectableByCurrentFilters =
+      reinspectContext?.isComponentInspectableByFilters(componentName) ?? true
+    const inspectorActive =
+      config.enabled &&
+      isActive &&
+      inspectableByCurrentMode &&
+      inspectableByCurrentFilters
     const shouldCountRendersForComponent =
       inspectorActive && isRenderCountingEnabledFor(componentName)
     const isComponentSpecificRenderCountingEnabled = Boolean(

@@ -505,6 +505,19 @@
   font-size: 12px;
 }
 
+.reinspect-settings-textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+  min-height: 72px;
+}
+
 .reinspect-settings-toggle-label {
   line-height: 1.35;
 }

@@ -1,6 +1,7 @@
 import type {
   ComponentStyleOverrides,
   EditableStyleProp,
+  InspectFilter,
   InspectMode,
   RenderCounterMode,
   ResolvedReinspectConfig,
@@ -11,6 +12,8 @@ export interface ReinspectState {
   isActive: boolean
   inspectMode: InspectMode
   pendingInspectMode: InspectMode
+  inspectWhitelist: InspectFilter
+  inspectBlacklist: InspectFilter
   renderCounterMode: RenderCounterMode
   renderCountComponents: Record<string, true>
   overrides: Record<string, ComponentStyleOverrides>
@@ -29,6 +32,16 @@ interface SetIsActiveAction {
 interface SetPendingInspectModeAction {
   type: 'set-pending-inspect-mode'
   value: InspectMode
+}
+
+interface SetInspectWhitelistAction {
+  type: 'set-inspect-whitelist'
+  value: InspectFilter
+}
+
+interface SetInspectBlacklistAction {
+  type: 'set-inspect-blacklist'
+  value: InspectFilter
 }
 
 interface SetRenderCounterModeAction {
@@ -53,6 +66,8 @@ export type ReinspectStateAction =
   | HydrateConfigAction
   | SetIsActiveAction
   | SetPendingInspectModeAction
+  | SetInspectWhitelistAction
+  | SetInspectBlacklistAction
   | SetRenderCounterModeAction
   | SetRenderCountingForComponentAction
   | UpdateOverrideAction
@@ -75,6 +90,8 @@ export function buildInitialReinspectState(
     isActive: config.startActive,
     inspectMode: config.inspectMode,
     pendingInspectMode: config.inspectMode,
+    inspectWhitelist: config.inspectWhitelist,
+    inspectBlacklist: config.inspectBlacklist,
     renderCounterMode: config.renderCounters,
     renderCountComponents: buildRenderCountComponentMap(
       config.countRendersForComponents,
@@ -104,6 +121,18 @@ function shallowEqualStringArray(
   return true
 }
 
+function shallowEqualInspectFilter(
+  left: InspectFilter,
+  right: InspectFilter,
+): boolean {
+  return (
+    left.regex === right.regex &&
+    left.wholeWord === right.wholeWord &&
+    left.matchCase === right.matchCase &&
+    shallowEqualStringArray(left.patterns, right.patterns)
+  )
+}
+
 export function reinspectStateReducer(
   state: ReinspectState,
   action: ReinspectStateAction,
@@ -118,6 +147,8 @@ export function reinspectStateReducer(
         isActive: action.config.enabled ? state.isActive : false,
         inspectMode: action.config.inspectMode,
         pendingInspectMode: action.config.inspectMode,
+        inspectWhitelist: action.config.inspectWhitelist,
+        inspectBlacklist: action.config.inspectBlacklist,
         renderCounterMode: action.config.renderCounters,
         renderCountComponents: nextRenderCountComponents,
       }
@@ -126,6 +157,14 @@ export function reinspectStateReducer(
         nextState.isActive === state.isActive &&
         nextState.inspectMode === state.inspectMode &&
         nextState.pendingInspectMode === state.pendingInspectMode &&
+        shallowEqualInspectFilter(
+          nextState.inspectWhitelist,
+          state.inspectWhitelist,
+        ) &&
+        shallowEqualInspectFilter(
+          nextState.inspectBlacklist,
+          state.inspectBlacklist,
+        ) &&
         nextState.renderCounterMode === state.renderCounterMode &&
         shallowEqualStringArray(
           Object.keys(nextState.renderCountComponents),
@@ -154,6 +193,24 @@ export function reinspectStateReducer(
       return {
         ...state,
         pendingInspectMode: action.value,
+      }
+
+    case 'set-inspect-whitelist':
+      if (shallowEqualInspectFilter(state.inspectWhitelist, action.value)) {
+        return state
+      }
+      return {
+        ...state,
+        inspectWhitelist: action.value,
+      }
+
+    case 'set-inspect-blacklist':
+      if (shallowEqualInspectFilter(state.inspectBlacklist, action.value)) {
+        return state
+      }
+      return {
+        ...state,
+        inspectBlacklist: action.value,
       }
 
     case 'set-render-counter-mode':

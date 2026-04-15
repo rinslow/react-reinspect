@@ -169,6 +169,163 @@ describe('Reinspect', () => {
     reloadSpy.mockRestore()
   })
 
+  it('applies inspect whitelist changes live and persists them for the session', async () => {
+    const user = userEvent.setup()
+
+    const AllowedCard = withReinspect(function AllowedCard() {
+      return <p>allowed</p>
+    }, { name: 'AllowedCard' })
+    const BlockedCard = withReinspect(function BlockedCard() {
+      return <p>blocked</p>
+    }, { name: 'BlockedCard' })
+
+    const firstRender = renderWithReinspect(
+      <>
+        <AllowedCard />
+        <BlockedCard />
+      </>,
+      {
+        enabled: true,
+        startActive: true,
+        showFloatingToggle: true,
+      },
+    )
+
+    expect(screen.getByTestId('reinspect-shell-AllowedCard')).toBeInTheDocument()
+    expect(screen.getByTestId('reinspect-shell-BlockedCard')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('reinspect-floating-toggle'))
+    const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+    const whitelistInput = within(settingsMenu).getByTestId(
+      'reinspect-setting-inspect-whitelist-patterns',
+    )
+
+    fireEvent.change(whitelistInput, { target: { value: 'AllowedCard' } })
+
+    expect(screen.getByTestId('reinspect-shell-AllowedCard')).toBeInTheDocument()
+    expect(screen.queryByTestId('reinspect-shell-BlockedCard')).toBeNull()
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
+      ),
+    ).toBe(
+      JSON.stringify({
+        patterns: ['AllowedCard'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      }),
+    )
+
+    fireEvent.change(whitelistInput, { target: { value: '' } })
+    expect(screen.getByTestId('reinspect-shell-BlockedCard')).toBeInTheDocument()
+
+    fireEvent.change(whitelistInput, { target: { value: 'AllowedCard' } })
+    firstRender.unmount()
+
+    renderWithReinspect(
+      <>
+        <AllowedCard />
+        <BlockedCard />
+      </>,
+      {
+        enabled: true,
+        startActive: true,
+        showFloatingToggle: true,
+      },
+    )
+
+    expect(screen.getByTestId('reinspect-shell-AllowedCard')).toBeInTheDocument()
+    expect(screen.queryByTestId('reinspect-shell-BlockedCard')).toBeNull()
+  })
+
+  it('uses session inspect filters over config filters', () => {
+    window.sessionStorage.setItem(
+      reinspectUtils.REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
+      JSON.stringify({
+        patterns: ['StoredAllow'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      }),
+    )
+    window.sessionStorage.setItem(
+      reinspectUtils.REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY,
+      JSON.stringify({
+        patterns: ['StoredBlock'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      }),
+    )
+
+    function Probe() {
+      const { inspectWhitelist, inspectBlacklist } = useReinspect()
+      return (
+        <output data-testid="inspect-filter-probe">
+          {`${inspectWhitelist.patterns.join('|')}::${inspectBlacklist.patterns.join('|')}`}
+        </output>
+      )
+    }
+
+    renderWithReinspect(<Probe />, {
+      enabled: true,
+      showFloatingToggle: false,
+      inspectWhitelist: {
+        patterns: ['ConfigAllow'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      },
+      inspectBlacklist: {
+        patterns: ['ConfigBlock'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      },
+    })
+
+    expect(screen.getByTestId('inspect-filter-probe')).toHaveTextContent(
+      'StoredAllow::StoredBlock',
+    )
+  })
+
+  it('shows invalid regex warnings in settings without breaking rendering', async () => {
+    const user = userEvent.setup()
+
+    const Wrapped = withReinspect(function InvalidRegexCard() {
+      return <p>invalid regex target</p>
+    }, { name: 'InvalidRegexCard' })
+
+    renderWithReinspect(<Wrapped />, {
+      enabled: true,
+      startActive: true,
+      showFloatingToggle: true,
+    })
+
+    expect(screen.getByTestId('reinspect-shell-InvalidRegexCard')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('reinspect-floating-toggle'))
+    const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+
+    await user.click(
+      within(settingsMenu).getByTestId('reinspect-setting-inspect-whitelist-regex'),
+    )
+    fireEvent.change(
+      within(settingsMenu).getByTestId(
+        'reinspect-setting-inspect-whitelist-patterns',
+      ),
+      { target: { value: '[' } },
+    )
+
+    expect(
+      within(settingsMenu).getByTestId(
+        'reinspect-setting-inspect-whitelist-invalid',
+      ),
+    ).toHaveTextContent('[')
+    expect(screen.getByTestId('reinspect-shell-InvalidRegexCard')).toBeInTheDocument()
+  })
+
   it('shows inspector chrome only while inspect mode is active', async () => {
     const user = userEvent.setup()
 

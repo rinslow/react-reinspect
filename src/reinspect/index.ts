@@ -11,6 +11,8 @@ export { useReinspect } from './useReinspect'
 export { withReinspect } from './withReinspect'
 
 export type {
+  InspectFilter,
+  InspectFilterConfig,
   InspectMode,
   RenderCounterMode,
   ReinspectConfig,

@@ -344,11 +344,24 @@ Wrap your app root.
 | `startActive` | `boolean` | `true` | Initial inspector active state. |
 | `showFloatingToggle` | `boolean` | `enabled` | Show built-in settings button. |
 | `inspectMode` | `'wrapped' \| 'first-party' \| 'all'` | `'wrapped'` | Auto-wrap visibility behavior. |
+| `inspectWhitelist` | `InspectFilter` | `{ patterns: [], regex: false, wholeWord: false, matchCase: false }` | Optional include filter by component name. |
+| `inspectBlacklist` | `InspectFilter` | `{ patterns: [], regex: false, wholeWord: false, matchCase: false }` | Optional exclude filter by component name. |
 | `editableProps` | `EditableStyleProp[]` | built-in defaults | CSS props editable in inspector. |
 | `palette` | `string[]` | built-in defaults | Component outline/badge colors. |
 | `zIndexBase` | `number` | `2147483000` | Overlay stacking baseline. |
 | `renderCounters` | `'off' \| 'attempts' \| 'commits' \| 'both'` | `'off'` | Global render-counter mode. |
 | `countRendersForComponents` | `string[]` | `[]` | Component-specific counting when global mode is `off`. |
+
+### `InspectFilter`
+
+```ts
+type InspectFilter = {
+  patterns: string[]
+  regex: boolean
+  wholeWord: boolean
+  matchCase: boolean
+}
+```
 
 ### `withReinspect(Component, options?)`
 

@@ -125,4 +125,119 @@ describe('autoWrapInspectable', () => {
 
     expect(screen.getByTestId('reinspect-shell-AnonymousAuto')).toBeInTheDocument()
   })
+
+  it('keeps inspect mode as the base gate before whitelist rules', () => {
+    const AutoCard = autoWrapInspectable(
+      () => <p>auto card</p>,
+      {
+        scope: 'first-party',
+        fallbackName: 'AutoCard',
+      },
+    )
+
+    renderWithConfig(<AutoCard />, {
+      inspectMode: 'wrapped',
+      inspectWhitelist: {
+        patterns: ['AutoCard'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      },
+    })
+
+    expect(screen.queryByTestId('reinspect-shell-AutoCard')).not.toBeInTheDocument()
+    expect(screen.getByText('auto card')).toBeInTheDocument()
+  })
+
+  it('shows only whitelist matches when whitelist rules are configured', () => {
+    const AllowedCard = autoWrapInspectable(
+      () => <p>allowed</p>,
+      {
+        scope: 'first-party',
+        fallbackName: 'AllowedCard',
+      },
+    )
+    const OtherCard = autoWrapInspectable(
+      () => <p>other</p>,
+      {
+        scope: 'first-party',
+        fallbackName: 'OtherCard',
+      },
+    )
+
+    renderWithConfig(
+      <>
+        <AllowedCard />
+        <OtherCard />
+      </>,
+      {
+        inspectMode: 'first-party',
+        inspectWhitelist: {
+          patterns: ['AllowedCard'],
+          regex: false,
+          wholeWord: false,
+          matchCase: false,
+        },
+      },
+    )
+
+    expect(screen.getByTestId('reinspect-shell-AllowedCard')).toBeInTheDocument()
+    expect(screen.queryByTestId('reinspect-shell-OtherCard')).not.toBeInTheDocument()
+  })
+
+  it('hides matching components when blacklist rules are configured', () => {
+    const VendorCard = autoWrapInspectable(
+      () => <p>vendor card</p>,
+      {
+        scope: 'third-party',
+        fallbackName: 'VendorCard',
+      },
+    )
+
+    renderWithConfig(<VendorCard />, {
+      inspectMode: 'all',
+      inspectBlacklist: {
+        patterns: ['VendorCard'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      },
+    })
+
+    expect(
+      screen.queryByTestId('reinspect-shell-VendorCard'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('vendor card')).toBeInTheDocument()
+  })
+
+  it('prefers blacklist over whitelist when both match the same component', () => {
+    const ConflictCard = autoWrapInspectable(
+      () => <p>conflict</p>,
+      {
+        scope: 'first-party',
+        fallbackName: 'ConflictCard',
+      },
+    )
+
+    renderWithConfig(<ConflictCard />, {
+      inspectMode: 'first-party',
+      inspectWhitelist: {
+        patterns: ['ConflictCard'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      },
+      inspectBlacklist: {
+        patterns: ['ConflictCard'],
+        regex: false,
+        wholeWord: false,
+        matchCase: false,
+      },
+    })
+
+    expect(
+      screen.queryByTestId('reinspect-shell-ConflictCard'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('conflict')).toBeInTheDocument()
+  })
 })

@@ -56,7 +56,7 @@ export interface WithReinspectInternalOptions {
   scope?: AutoDiscoverScope
 }
 
-type InspectorPanel = 'css' | 'props'
+type InspectorPanel = 'general' | 'css' | 'props'
 type PropsPanelView = 'detected' | 'raw'
 
 const FALLBACK_CONFIG = {
@@ -84,6 +84,9 @@ const FALLBACK_CONFIG = {
 }
 
 let instanceSequence = 0
+const MENU_VIEWPORT_MARGIN = 12
+const MENU_ESTIMATED_WIDTH = 360
+const MENU_ESTIMATED_HEIGHT = 520
 
 function createInstanceId(componentName: string): string {
   instanceSequence += 1
@@ -108,6 +111,39 @@ function hasValue(value: StyleOverrideValue | undefined): boolean {
 
 function toDataTestIdSegment(input: string): string {
   return input.replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function clampMenuPosition(
+  position: { x: number; y: number },
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  if (typeof window === 'undefined') {
+    return position
+  }
+
+  const minX = MENU_VIEWPORT_MARGIN
+  const minY = MENU_VIEWPORT_MARGIN
+  const maxX = Math.max(
+    minX,
+    window.innerWidth - width - MENU_VIEWPORT_MARGIN,
+  )
+  const maxY = Math.max(
+    minY,
+    window.innerHeight - height - MENU_VIEWPORT_MARGIN,
+  )
+
+  return {
+    x: Math.min(Math.max(position.x, minX), maxX),
+    y: Math.min(Math.max(position.y, minY), maxY),
+  }
+}
+
+function appendUniquePattern(
+  patterns: readonly string[],
+  pattern: string,
+): string[] {
+  return patterns.includes(pattern) ? [...patterns] : [...patterns, pattern]
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -235,6 +271,12 @@ export function withReinspectInternal<P extends object>(
     const renderCountComponents = reinspectContext?.renderCountComponents ?? {}
     const setRenderCountingForComponent =
       reinspectContext?.setRenderCountingForComponent ??
+      (() => undefined)
+    const setInspectWhitelist =
+      reinspectContext?.setInspectWhitelist ??
+      (() => undefined)
+    const setInspectBlacklist =
+      reinspectContext?.setInspectBlacklist ??
       (() => undefined)
     const isRenderCountingEnabledFor =
       reinspectContext?.isRenderCountingEnabledFor ??
@@ -370,6 +412,26 @@ export function withReinspectInternal<P extends object>(
       }
     }, [propsCopyStatus])
 
+    useEffect(() => {
+      if (!menuOpen || !menuPosition || !menuRef.current) {
+        return
+      }
+
+      const rect = menuRef.current.getBoundingClientRect()
+      const nextPosition = clampMenuPosition(
+        menuPosition,
+        rect.width,
+        rect.height,
+      )
+
+      if (
+        nextPosition.x !== menuPosition.x ||
+        nextPosition.y !== menuPosition.y
+      ) {
+        setMenuPosition(nextPosition)
+      }
+    }, [menuOpen, menuPosition])
+
     const shellStyle = {
       '--reinspect-color': borderColor,
       '--reinspect-z-base': config.zIndexBase,
@@ -381,7 +443,7 @@ export function withReinspectInternal<P extends object>(
       }
 
       event.preventDefault()
-      setActivePanel('css')
+      setActivePanel('general')
       setPropsPanelView('detected')
       setCssFilter('')
       setPropsError(null)
@@ -393,10 +455,16 @@ export function withReinspectInternal<P extends object>(
       setEditingDraft('')
       setEditingError(null)
       setPropsDraft('{}')
-      setMenuPosition({
-        x: event.clientX,
-        y: event.clientY,
-      })
+      setMenuPosition(
+        clampMenuPosition(
+          {
+            x: event.clientX,
+            y: event.clientY,
+          },
+          MENU_ESTIMATED_WIDTH,
+          MENU_ESTIMATED_HEIGHT,
+        ),
+      )
     }
 
     const applyPropsOverrides = () => {
@@ -494,45 +562,55 @@ export function withReinspectInternal<P extends object>(
       setEditingError(null)
     }
 
+    const includeAllComponentInstances = () => {
+      setInspectWhitelist((current) => ({
+        ...current,
+        patterns: appendUniquePattern(current.patterns, componentName),
+      }))
+    }
+
+    const excludeAllComponentInstances = () => {
+      setInspectBlacklist((current) => ({
+        ...current,
+        patterns: appendUniquePattern(current.patterns, componentName),
+      }))
+      setMenuPosition(null)
+    }
+
     const menuElement = menuOpen ? (
       <div
         ref={menuRef}
         className="reinspect-menu"
         role="dialog"
-        aria-label={`${componentName} inspector controls`}
+        aria-label={`${componentName} controls`}
         style={{
           top: `${menuPosition.y}px`,
           left: `${menuPosition.x}px`,
         }}
       >
-        <p className="reinspect-menu-title">{componentName} inspector</p>
-        <label className="reinspect-menu-component-setting">
-          <span>Capture renders for this component</span>
-          <input
-            type="checkbox"
-            checked={
-              shouldCountRendersGlobally
-                ? true
-                : isComponentSpecificRenderCountingEnabled
-            }
-            onChange={(event) =>
-              setRenderCountingForComponent(
-                componentName,
-                event.currentTarget.checked,
-              )
-            }
-            disabled={shouldCountRendersGlobally}
-            aria-label={`Capture renders for ${componentName}`}
-            data-testid={`reinspect-component-render-toggle-${componentName}`}
-          />
-        </label>
-        {shouldCountRendersGlobally ? (
-          <p className="reinspect-setting-note">
-            Global capture is enabled from Reinspect settings.
-          </p>
-        ) : null}
-
-        <div className="reinspect-submenu">
+        <div className="reinspect-menu-header">
+          <div className="reinspect-menu-title-wrap">
+            <p className="reinspect-menu-title">{componentName}</p>
+            <p className="reinspect-menu-subtitle">Component controls</p>
+          </div>
+          <button
+            type="button"
+            className="reinspect-menu-close"
+            aria-label={`Close ${componentName} controls`}
+            data-testid={`reinspect-menu-close-${componentName}`}
+            onClick={() => setMenuPosition(null)}
+          >
+            ×
+          </button>
+        </div>
+        <div className="reinspect-submenu" aria-label={`${componentName} menu panels`}>
+          <button
+            type="button"
+            data-state={activePanel === 'general' ? 'active' : 'idle'}
+            onClick={() => setActivePanel('general')}
+          >
+            General
+          </button>
           <button
             type="button"
             data-state={activePanel === 'css' ? 'active' : 'idle'}
@@ -549,8 +627,100 @@ export function withReinspectInternal<P extends object>(
           </button>
         </div>
 
+        {activePanel === 'general' ? (
+          <div className="reinspect-general-panel">
+            <section className="reinspect-menu-section">
+              <div className="reinspect-menu-section-header">
+                <p className="reinspect-menu-section-title">Quick filters</p>
+                <p className="reinspect-menu-section-caption">{componentName}</p>
+              </div>
+              <p className="reinspect-menu-section-description">
+                Focus inspection on this component type, or hide this type from
+                inspection.
+              </p>
+              <div className="reinspect-menu-shortcuts">
+                <button
+                  type="button"
+                  className="reinspect-menu-action-card"
+                  onClick={includeAllComponentInstances}
+                  data-testid={`reinspect-include-component-${componentName}`}
+                  aria-label={`Only inspect ${componentName} components`}
+                >
+                  <span className="reinspect-menu-action-title">
+                    Show only this component type
+                  </span>
+                  <span className="reinspect-menu-action-description">
+                    Keeps all matching instances inspectable and hides other types.
+                  </span>
+                  <code className="reinspect-menu-action-target">{componentName}</code>
+                </button>
+                <button
+                  type="button"
+                  className="reinspect-menu-action-card"
+                  onClick={excludeAllComponentInstances}
+                  data-testid={`reinspect-exclude-component-${componentName}`}
+                  aria-label={`Hide ${componentName} components from inspection`}
+                >
+                  <span className="reinspect-menu-action-title">
+                    Hide this component type
+                  </span>
+                  <span className="reinspect-menu-action-description">
+                    Removes matching instances from inspection overlays.
+                  </span>
+                  <code className="reinspect-menu-action-target">{componentName}</code>
+                </button>
+              </div>
+              <div className="reinspect-menu-divider" />
+              <div className="reinspect-menu-inline-setting">
+                <div className="reinspect-menu-inline-copy">
+                  <p className="reinspect-menu-inline-title">Capture renders</p>
+                  <p className="reinspect-menu-inline-description">
+                    Track rerender attempts and commits for this component.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={
+                    shouldCountRendersGlobally
+                      ? true
+                      : isComponentSpecificRenderCountingEnabled
+                  }
+                  onClick={() =>
+                    setRenderCountingForComponent(
+                      componentName,
+                      !isComponentSpecificRenderCountingEnabled,
+                    )
+                  }
+                  disabled={shouldCountRendersGlobally}
+                  aria-label={`Capture renders for ${componentName}`}
+                  data-testid={`reinspect-component-render-toggle-${componentName}`}
+                  className="reinspect-switch-button reinspect-menu-switch"
+                  data-state={
+                    shouldCountRendersGlobally ||
+                    isComponentSpecificRenderCountingEnabled
+                      ? 'on'
+                      : 'off'
+                  }
+                />
+              </div>
+              {shouldCountRendersGlobally ? (
+                <p className="reinspect-setting-note">
+                  Global render capture is enabled in settings.
+                </p>
+              ) : null}
+            </section>
+          </div>
+        ) : null}
+
         {activePanel === 'css' ? (
-          <>
+          <div className="reinspect-css-panel">
+            <div className="reinspect-menu-panel-header">
+              <p className="reinspect-menu-section-title">Editable styles</p>
+              <p className="reinspect-menu-section-caption">
+                {filteredEditableProps.length}/{config.editableProps.length}
+              </p>
+            </div>
             <div className="reinspect-menu-filter">
               <span className="reinspect-menu-filter-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -569,6 +739,16 @@ export function withReinspectInternal<P extends object>(
                 aria-label="Filter CSS properties"
                 onChange={(event) => setCssFilter(event.currentTarget.value)}
               />
+              {cssFilter.trim().length > 0 ? (
+                <button
+                  type="button"
+                  className="reinspect-menu-filter-clear"
+                  onClick={() => setCssFilter('')}
+                  aria-label="Clear CSS filter"
+                >
+                  Clear
+                </button>
+              ) : null}
             </div>
             <div className="reinspect-menu-grid">
               {filteredEditableProps.map((prop) => {
@@ -723,8 +903,10 @@ export function withReinspectInternal<P extends object>(
                 No CSS properties match &quot;{cssFilter.trim()}&quot;.
               </p>
             ) : null}
-          </>
-        ) : (
+          </div>
+        ) : null}
+
+        {activePanel === 'props' ? (
           <div className="reinspect-props-panel">
             <div className="reinspect-props-submenu">
               <button
@@ -871,7 +1053,7 @@ export function withReinspectInternal<P extends object>(
               </p>
             ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     ) : null
 

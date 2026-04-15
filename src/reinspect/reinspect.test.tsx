@@ -241,6 +241,98 @@ describe('Reinspect', () => {
     expect(screen.queryByTestId('reinspect-shell-BlockedCard')).toBeNull()
   })
 
+  it('adds include filter from the component context menu', async () => {
+    const user = userEvent.setup()
+
+    const IncludeCard = withReinspect(function IncludeCard() {
+      return <p>include card</p>
+    }, { name: 'IncludeCard' })
+    const OtherCard = withReinspect(function OtherCard() {
+      return <p>other card</p>
+    }, { name: 'OtherCard' })
+
+    renderWithReinspect(
+      <>
+        <IncludeCard />
+        <OtherCard />
+      </>,
+      {
+        enabled: true,
+        startActive: true,
+        showFloatingToggle: true,
+      },
+    )
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-IncludeCard'))
+    const dialog = screen.getByRole('dialog', { name: 'IncludeCard controls' })
+    await user.click(
+      within(dialog).getByTestId('reinspect-include-component-IncludeCard'),
+    )
+
+    expect(screen.getByTestId('reinspect-shell-IncludeCard')).toBeInTheDocument()
+    expect(screen.queryByTestId('reinspect-shell-OtherCard')).toBeNull()
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
+      ),
+    ).toContain('IncludeCard')
+  })
+
+  it('adds exclude filter from the component context menu', async () => {
+    const user = userEvent.setup()
+
+    const ExcludeCard = withReinspect(function ExcludeCard() {
+      return <p>exclude card</p>
+    }, { name: 'ExcludeCard' })
+    const OtherCard = withReinspect(function OtherCard() {
+      return <p>other card</p>
+    }, { name: 'OtherCard' })
+
+    renderWithReinspect(
+      <>
+        <ExcludeCard />
+        <OtherCard />
+      </>,
+      {
+        enabled: true,
+        startActive: true,
+        showFloatingToggle: true,
+      },
+    )
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-ExcludeCard'))
+    const dialog = screen.getByRole('dialog', { name: 'ExcludeCard controls' })
+    await user.click(
+      within(dialog).getByTestId('reinspect-exclude-component-ExcludeCard'),
+    )
+
+    expect(screen.queryByTestId('reinspect-shell-ExcludeCard')).toBeNull()
+    expect(screen.getByTestId('reinspect-shell-OtherCard')).toBeInTheDocument()
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY,
+      ),
+    ).toContain('ExcludeCard')
+  })
+
+  it('closes the component context menu from the header close button', async () => {
+    const user = userEvent.setup()
+
+    const CloseCard = withReinspect(function CloseCard() {
+      return <p>close card</p>
+    }, { name: 'CloseCard' })
+
+    renderWithReinspect(<CloseCard />)
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-CloseCard'))
+    const dialog = screen.getByRole('dialog', { name: 'CloseCard controls' })
+    await user.click(within(dialog).getByTestId('reinspect-menu-close-CloseCard'))
+
+    expect(
+      screen.queryByRole('dialog', { name: 'CloseCard controls' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('uses session inspect filters over config filters', () => {
     window.sessionStorage.setItem(
       reinspectUtils.REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
@@ -347,7 +439,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-DemoCard'))
     expect(
-      screen.getByRole('dialog', { name: 'DemoCard inspector controls' }),
+      screen.getByRole('dialog', { name: 'DemoCard controls' }),
     ).toBeInTheDocument()
 
     await user.click(screen.getByTestId('reinspect-floating-toggle'))
@@ -358,7 +450,7 @@ describe('Reinspect', () => {
 
     expect(screen.queryByTestId('reinspect-shell-DemoCard')).toBeNull()
     expect(
-      screen.queryByRole('dialog', { name: 'DemoCard inspector controls' }),
+      screen.queryByRole('dialog', { name: 'DemoCard controls' }),
     ).not.toBeInTheDocument()
   })
 
@@ -477,7 +569,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-CountedHeader'))
     const dialog = screen.getByRole('dialog', {
-      name: 'CountedHeader inspector controls',
+      name: 'CountedHeader controls',
     })
     await user.click(
       within(dialog).getByTestId('reinspect-component-render-toggle-CountedHeader'),
@@ -546,9 +638,10 @@ describe('Reinspect', () => {
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-StyleTarget'))
 
     const dialog = screen.getByRole('dialog', {
-      name: 'StyleTarget inspector controls',
+      name: 'StyleTarget controls',
     })
 
+    await user.click(within(dialog).getByRole('button', { name: 'CSS' }))
     const paddingField = within(dialog).getByLabelText('Padding (px)')
     await user.clear(paddingField)
     await user.type(paddingField, '24')
@@ -571,9 +664,10 @@ describe('Reinspect', () => {
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-FilterCard'))
 
     const dialog = screen.getByRole('dialog', {
-      name: 'FilterCard inspector controls',
+      name: 'FilterCard controls',
     })
 
+    await user.click(within(dialog).getByRole('button', { name: 'CSS' }))
     const filterInput = within(dialog).getByPlaceholderText('Filter')
     await user.type(filterInput, 'padding')
 
@@ -607,7 +701,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-PropsCard'))
     const dialog = screen.getByRole('dialog', {
-      name: 'PropsCard inspector controls',
+      name: 'PropsCard controls',
     })
 
     await user.click(within(dialog).getByRole('button', { name: 'Props' }))
@@ -636,7 +730,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-DiffCard'))
     const dialog = screen.getByRole('dialog', {
-      name: 'DiffCard inspector controls',
+      name: 'DiffCard controls',
     })
 
     await user.click(within(dialog).getByRole('button', { name: 'Props' }))
@@ -674,7 +768,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-FnCard'))
     const dialog = screen.getByRole('dialog', {
-      name: 'FnCard inspector controls',
+      name: 'FnCard controls',
     })
 
     await user.click(within(dialog).getByRole('button', { name: 'Props' }))
@@ -701,7 +795,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-JsonCard'))
     const dialog = screen.getByRole('dialog', {
-      name: 'JsonCard inspector controls',
+      name: 'JsonCard controls',
     })
 
     await user.click(within(dialog).getByRole('button', { name: 'Props' }))
@@ -733,7 +827,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-EditCard'))
     const dialog = screen.getByRole('dialog', {
-      name: 'EditCard inspector controls',
+      name: 'EditCard controls',
     })
 
     await user.click(within(dialog).getByRole('button', { name: 'Props' }))
@@ -765,7 +859,7 @@ describe('Reinspect', () => {
 
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-PlaceholderCard'))
     const dialog = screen.getByRole('dialog', {
-      name: 'PlaceholderCard inspector controls',
+      name: 'PlaceholderCard controls',
     })
 
     await user.click(within(dialog).getByRole('button', { name: 'Props' }))
@@ -793,9 +887,10 @@ describe('Reinspect', () => {
     fireEvent.contextMenu(screen.getByTestId('reinspect-shell-SessionCard'))
 
     const dialog = screen.getByRole('dialog', {
-      name: 'SessionCard inspector controls',
+      name: 'SessionCard controls',
     })
 
+    await user.click(within(dialog).getByRole('button', { name: 'CSS' }))
     const marginField = within(dialog).getByLabelText('Margin (px)')
     await user.clear(marginField)
     await user.type(marginField, '18')

@@ -94,6 +94,33 @@ describe('propsInspector', () => {
     expect(json).toContain('"size": 2')
   })
 
+  it('distills React element internals by default and keeps them in complete mode', () => {
+    const elementLikeValue = {
+      $$typeof: Symbol('react.element'),
+      type: () => null,
+      key: 'item-1',
+      props: {
+        title: 'Card',
+      },
+      _owner: {
+        tag: 0,
+      },
+      _store: {},
+    }
+
+    const distilled = serializeValueForJson(elementLikeValue)
+    expect(distilled).toContain('"key": "item-1"')
+    expect(distilled).toContain('"props"')
+    expect(distilled).not.toContain('"_owner"')
+    expect(distilled).not.toContain('"$$typeof"')
+
+    const complete = serializeValueForJson(elementLikeValue, {
+      mode: 'complete',
+    })
+    expect(complete).toContain('"_owner"')
+    expect(complete).toContain('"$$typeof"')
+  })
+
   it('marks only primitives, arrays and plain objects as editable', () => {
     expect(isEditablePropValue('x')).toBe(true)
     expect(isEditablePropValue(1)).toBe(true)

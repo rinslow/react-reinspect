@@ -15,15 +15,6 @@ export const DEFAULT_EDITABLE_PROPS: readonly EditableStyleProp[] = [
   'gap',
 ]
 
-export const DEFAULT_PALETTE: readonly string[] = [
-  '#f97316',
-  '#2563eb',
-  '#16a34a',
-  '#db2777',
-  '#ca8a04',
-  '#0f766e',
-]
-
 export const COLOR_STYLE_PROPS = new Set<EditableStyleProp>([
   'backgroundColor',
   'color',

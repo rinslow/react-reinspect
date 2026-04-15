@@ -106,6 +106,86 @@ describe('Reinspect', () => {
     expect(screen.getByTestId('counter-mode-probe')).toHaveTextContent('both')
   })
 
+  it('derives stable colors from component name hash and caches values', () => {
+    const config: ReinspectConfig = {
+      enabled: true,
+      startActive: true,
+      showFloatingToggle: false,
+    }
+    const ColorCard = withReinspect(function ColorCard() {
+      return <p>card</p>
+    }, { name: 'ColorCard' })
+    const OtherColorCard = withReinspect(function OtherColorCard() {
+      return <p>other</p>
+    }, { name: 'OtherColorCard' })
+
+    const view = renderWithReinspect(
+      <>
+        <ColorCard />
+        <ColorCard />
+        <OtherColorCard />
+      </>,
+      config,
+    )
+
+    const cardShells = screen.getAllByTestId('reinspect-shell-ColorCard')
+    expect(cardShells).toHaveLength(2)
+    const firstCardShell = cardShells[0]
+    const secondCardShell = cardShells[1]
+    if (!firstCardShell || !secondCardShell) {
+      throw new Error('Expected two ColorCard shells')
+    }
+    const initialColor = firstCardShell.style.getPropertyValue('--reinspect-color')
+
+    expect(initialColor).toMatch(/^hsl\(/)
+    expect(secondCardShell.style.getPropertyValue('--reinspect-color')).toBe(
+      initialColor,
+    )
+    expect(
+      screen
+        .getByTestId('reinspect-shell-OtherColorCard')
+        .style.getPropertyValue('--reinspect-color'),
+    ).toMatch(/^hsl\(/)
+
+    view.rerender(
+      <ReinspectProvider config={config}>
+        <ColorCard />
+        <ColorCard />
+        <OtherColorCard />
+      </ReinspectProvider>,
+    )
+
+    const rerenderedCardShells = screen.getAllByTestId('reinspect-shell-ColorCard')
+    expect(rerenderedCardShells).toHaveLength(2)
+    const rerenderedFirstCardShell = rerenderedCardShells[0]
+    const rerenderedSecondCardShell = rerenderedCardShells[1]
+    if (!rerenderedFirstCardShell || !rerenderedSecondCardShell) {
+      throw new Error('Expected two ColorCard shells after rerender')
+    }
+    expect(
+      rerenderedFirstCardShell.style.getPropertyValue('--reinspect-color'),
+    ).toBe(initialColor)
+    expect(
+      rerenderedSecondCardShell.style.getPropertyValue('--reinspect-color'),
+    ).toBe(initialColor)
+
+    view.unmount()
+
+    renderWithReinspect(
+      <>
+        <ColorCard />
+        <OtherColorCard />
+      </>,
+      config,
+    )
+
+    expect(
+      screen
+        .getByTestId('reinspect-shell-ColorCard')
+        .style.getPropertyValue('--reinspect-color'),
+    ).toBe(initialColor)
+  })
+
   it('uses session inspect mode over config inspect mode', () => {
     window.sessionStorage.setItem(
       reinspectUtils.REINSPECT_INSPECT_MODE_STORAGE_KEY,
@@ -160,6 +240,58 @@ describe('Reinspect', () => {
         reinspectUtils.REINSPECT_INSPECT_MODE_STORAGE_KEY,
       ),
     ).toBe('first-party')
+  })
+
+  it('applies props detail mode through settings live and persists it', async () => {
+    const user = userEvent.setup()
+
+    function Probe() {
+      const { propsSerializationMode } = useReinspect()
+      return (
+        <output data-testid="props-serialization-mode-probe">
+          {propsSerializationMode}
+        </output>
+      )
+    }
+
+    renderWithReinspect(<Probe />, {
+      enabled: true,
+      propsSerializationMode: 'distilled',
+      showFloatingToggle: true,
+    })
+
+    await user.click(screen.getByTestId('reinspect-floating-toggle'))
+    const settingsMenu = screen.getByTestId('reinspect-settings-menu')
+    await user.click(
+      within(settingsMenu).getByTestId('reinspect-settings-tab-settings'),
+    )
+
+    const select = within(settingsMenu).getByTestId(
+      'reinspect-setting-props-serialization-mode',
+    )
+    expect(screen.getByTestId('props-serialization-mode-probe')).toHaveTextContent(
+      'distilled',
+    )
+    expect(
+      within(settingsMenu).getByText(
+        'Shows app-level props first and hides React internals like _owner.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.change(select, { target: { value: 'complete' } })
+    expect(screen.getByTestId('props-serialization-mode-probe')).toHaveTextContent(
+      'complete',
+    )
+    expect(
+      within(settingsMenu).getByText(
+        'Shows the full object graph, including React internals and metadata.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY,
+      ),
+    ).toBe('complete')
   })
 
   it('applies inspect whitelist changes live and persists them for the session', async () => {
@@ -269,6 +401,9 @@ describe('Reinspect', () => {
       within(dialog).getByTestId('reinspect-include-component-IncludeCard'),
     )
 
+    expect(
+      screen.getByRole('dialog', { name: 'IncludeCard controls' }),
+    ).toBeInTheDocument()
     expect(screen.getByTestId('reinspect-shell-IncludeCard')).toBeInTheDocument()
     expect(screen.queryByTestId('reinspect-shell-OtherCard')).toBeNull()
     expect(
@@ -276,6 +411,102 @@ describe('Reinspect', () => {
         reinspectUtils.REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
       ),
     ).toContain('IncludeCard')
+  })
+
+  it('keeps the context menu open when parent click-away handlers exist', async () => {
+    const user = userEvent.setup()
+
+    const IncludeCard = withReinspect(function IncludeCard() {
+      return <p>include card</p>
+    }, { name: 'IncludeCard' })
+    const OtherCard = withReinspect(function OtherCard() {
+      return <p>other card</p>
+    }, { name: 'OtherCard' })
+
+    function ClickAwayHost() {
+      const [closed, setClosed] = useState(false)
+
+      return (
+        <div data-testid="click-away-host" onClick={() => setClosed(true)}>
+          {closed ? (
+            <p data-testid="click-away-closed">closed</p>
+          ) : (
+            <>
+              <IncludeCard />
+              <OtherCard />
+            </>
+          )}
+        </div>
+      )
+    }
+
+    renderWithReinspect(<ClickAwayHost />, {
+      enabled: true,
+      startActive: true,
+      showFloatingToggle: true,
+    })
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-IncludeCard'))
+    const dialog = screen.getByRole('dialog', { name: 'IncludeCard controls' })
+    await user.click(
+      within(dialog).getByTestId('reinspect-include-component-IncludeCard'),
+    )
+
+    expect(screen.queryByTestId('click-away-closed')).toBeNull()
+    expect(
+      screen.getByRole('dialog', { name: 'IncludeCard controls' }),
+    ).toBeInTheDocument()
+  })
+
+  it('toggles include filter from the component context menu', async () => {
+    const user = userEvent.setup()
+
+    const IncludeCard = withReinspect(function IncludeCard() {
+      return <p>include card</p>
+    }, { name: 'IncludeCard' })
+    const OtherCard = withReinspect(function OtherCard() {
+      return <p>other card</p>
+    }, { name: 'OtherCard' })
+
+    renderWithReinspect(
+      <>
+        <IncludeCard />
+        <OtherCard />
+      </>,
+      {
+        enabled: true,
+        startActive: true,
+        showFloatingToggle: true,
+      },
+    )
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-IncludeCard'))
+    const dialog = screen.getByRole('dialog', { name: 'IncludeCard controls' })
+    const includeButton = within(dialog).getByTestId(
+      'reinspect-include-component-IncludeCard',
+    )
+    expect(includeButton).toHaveAttribute('data-state', 'idle')
+
+    await user.click(includeButton)
+    expect(includeButton).toHaveAttribute('data-state', 'active')
+
+    expect(screen.queryByTestId('reinspect-shell-OtherCard')).toBeNull()
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
+      ),
+    ).toContain('IncludeCard')
+
+    await user.click(includeButton)
+    expect(includeButton).toHaveAttribute('data-state', 'idle')
+
+    expect(screen.getByTestId('reinspect-shell-IncludeCard')).toBeInTheDocument()
+    expect(screen.getByTestId('reinspect-shell-OtherCard')).toBeInTheDocument()
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
+      ),
+    ).not.toContain('IncludeCard')
   })
 
   it('adds exclude filter from the component context menu', async () => {

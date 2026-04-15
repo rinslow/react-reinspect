@@ -15,7 +15,6 @@ const reinspectConfig: ReinspectConfig = {
   showFloatingToggle: true,
   inspectMode: 'first-party',
   editableProps: DEFAULT_EDITABLE_PROPS,
-  palette: ['#0369a1', '#ea580c', '#15803d', '#be123c', '#4338ca', '#0f766e'],
   zIndexBase: 2147483000,
 }
 

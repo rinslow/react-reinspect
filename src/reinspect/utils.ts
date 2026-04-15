@@ -4,11 +4,12 @@ import type {
   InspectFilter,
   InspectFilterConfig,
   InspectMode,
+  PropsSerializationMode,
   RenderCounterMode,
   ReinspectConfig,
   ResolvedReinspectConfig,
 } from './types'
-import { DEFAULT_EDITABLE_PROPS, DEFAULT_PALETTE } from './constants'
+import { DEFAULT_EDITABLE_PROPS } from './constants'
 
 const FALLBACK_Z_INDEX = 2147483000
 export const REINSPECT_INSPECT_MODE_STORAGE_KEY = 'reinspect.inspectMode'
@@ -16,6 +17,8 @@ export const REINSPECT_INSPECT_WHITELIST_STORAGE_KEY =
   'reinspect.inspectWhitelist'
 export const REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY =
   'reinspect.inspectBlacklist'
+export const REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY =
+  'reinspect.propsSerializationMode'
 export const DEFAULT_INSPECT_FILTER: InspectFilter = {
   patterns: [],
   regex: false,
@@ -33,6 +36,10 @@ const VALID_RENDER_COUNTER_MODES: readonly RenderCounterMode[] = [
   'attempts',
   'commits',
   'both',
+]
+const VALID_PROPS_SERIALIZATION_MODES: readonly PropsSerializationMode[] = [
+  'distilled',
+  'complete',
 ]
 
 let didWarnAboutLegacyRenderConfig = false
@@ -69,6 +76,15 @@ export function isRenderCounterMode(value: unknown): value is RenderCounterMode 
   return (
     typeof value === 'string' &&
     VALID_RENDER_COUNTER_MODES.includes(value as RenderCounterMode)
+  )
+}
+
+export function isPropsSerializationMode(
+  value: unknown,
+): value is PropsSerializationMode {
+  return (
+    typeof value === 'string' &&
+    VALID_PROPS_SERIALIZATION_MODES.includes(value as PropsSerializationMode)
   )
 }
 
@@ -222,6 +238,56 @@ export function persistInspectBlacklist(
   persistInspectFilter(REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY, filter)
 }
 
+function readStoredPropsSerializationMode():
+  | PropsSerializationMode
+  | undefined {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  try {
+    const storedValue = window.sessionStorage.getItem(
+      REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY,
+    )
+
+    return isPropsSerializationMode(storedValue) ? storedValue : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function resolvePropsSerializationMode(
+  configMode: PropsSerializationMode | undefined,
+): PropsSerializationMode {
+  const storedMode = readStoredPropsSerializationMode()
+  if (storedMode) {
+    return storedMode
+  }
+
+  if (isPropsSerializationMode(configMode)) {
+    return configMode
+  }
+
+  return 'distilled'
+}
+
+export function persistPropsSerializationMode(
+  mode: PropsSerializationMode,
+): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY,
+      mode,
+    )
+  } catch {
+    // Best-effort persistence only.
+  }
+}
+
 export function reloadWindow(): void {
   if (typeof window === 'undefined') {
     return
@@ -323,10 +389,6 @@ export function resolveReinspectConfig(
     config.editableProps && config.editableProps.length > 0
       ? config.editableProps
       : DEFAULT_EDITABLE_PROPS
-  const palette =
-    config.palette && config.palette.length > 0
-      ? config.palette
-      : DEFAULT_PALETTE
 
   return {
     enabled,
@@ -336,31 +398,13 @@ export function resolveReinspectConfig(
     inspectWhitelist: resolveInspectWhitelist(config.inspectWhitelist),
     inspectBlacklist: resolveInspectBlacklist(config.inspectBlacklist),
     editableProps,
-    palette,
     zIndexBase: config.zIndexBase ?? FALLBACK_Z_INDEX,
     renderCounters: resolveRenderCounters(config),
     countRendersForComponents: config.countRendersForComponents ?? [],
+    propsSerializationMode: resolvePropsSerializationMode(
+      config.propsSerializationMode,
+    ),
   }
-}
-
-function hashString(input: string): number {
-  let hash = 0
-  for (let index = 0; index < input.length; index += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(index)
-    hash |= 0
-  }
-  return Math.abs(hash)
-}
-
-export function pickColorByComponentName(
-  componentName: string,
-  palette: readonly string[],
-): string {
-  if (palette.length === 0) {
-    return DEFAULT_PALETTE[0] ?? '#f97316'
-  }
-
-  return palette[hashString(componentName) % palette.length] ?? '#f97316'
 }
 
 export function buildInlineStyleOverrides(

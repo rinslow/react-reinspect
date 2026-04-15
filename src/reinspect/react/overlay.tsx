@@ -7,26 +7,15 @@ import type { RenderCounterMode } from '../types'
 
 interface PropsValueTreeProps {
   value: InspectedValueDescriptor
-  onCopy: (text: string, label: string) => void
 }
 
-export function renderPropsValueTree({
-  value,
-  onCopy,
-}: PropsValueTreeProps): ReactNode {
+export function renderPropsValueTree({ value }: PropsValueTreeProps): ReactNode {
   if (value.kind === 'function' && value.functionMeta) {
     const functionMeta = value.functionMeta
     return (
       <div className="reinspect-prop-function">
         <code>{value.summary}</code>
         <pre>{functionMeta.preview}</pre>
-        <button
-          type="button"
-          onClick={() => onCopy(functionMeta.source, 'Function source')}
-          disabled={!functionMeta.source}
-        >
-          Copy function source
-        </button>
       </div>
     )
   }
@@ -34,11 +23,6 @@ export function renderPropsValueTree({
   return (
     <div className="reinspect-prop-scalar">
       <code>{value.summary}</code>
-      {value.copyText ? (
-        <button type="button" onClick={() => onCopy(value.copyText ?? '', 'Value')}>
-          Copy
-        </button>
-      ) : null}
     </div>
   )
 }

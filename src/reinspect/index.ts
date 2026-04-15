@@ -14,6 +14,7 @@ export type {
   InspectFilter,
   InspectFilterConfig,
   InspectMode,
+  PropsSerializationMode,
   RenderCounterMode,
   ReinspectConfig,
   ResolvedReinspectConfig,

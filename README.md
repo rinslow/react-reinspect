@@ -212,6 +212,7 @@ const reinspectConfig: ReinspectConfig = {
   // startActive: true, // start with inspector active when page loads
   // showFloatingToggle: true, // show floating react-reinspect settings button
   // inspectMode: 'wrapped', // wrapped: only wrapped components, first-party: wrapped + components with inspectable metadata, all: all components
+  // propsSerializationMode: 'distilled', // distilled hides React element internals in JSON previews/raw editor
   // editableProps: ['padding', 'margin'], // change the CSS props you can edit
 }
 
@@ -347,7 +348,7 @@ Wrap your app root.
 | `inspectWhitelist` | `InspectFilter` | `{ patterns: [], regex: false, wholeWord: false, matchCase: false }` | Optional include filter by component name. |
 | `inspectBlacklist` | `InspectFilter` | `{ patterns: [], regex: false, wholeWord: false, matchCase: false }` | Optional exclude filter by component name. |
 | `editableProps` | `EditableStyleProp[]` | built-in defaults | CSS props editable in inspector. |
-| `palette` | `string[]` | built-in defaults | Component outline/badge colors. |
+| `propsSerializationMode` | `'distilled' \| 'complete'` | `'distilled'` | JSON view mode for props/value serialization in inspector menus. |
 | `zIndexBase` | `number` | `2147483000` | Overlay stacking baseline. |
 | `renderCounters` | `'off' \| 'attempts' \| 'commits' \| 'both'` | `'off'` | Global render-counter mode. |
 | `countRendersForComponents` | `string[]` | `[]` | Component-specific counting when global mode is `off`. |
@@ -373,10 +374,6 @@ Wrap a component manually.
 `wrapInspectableMap` remains available as an internal utility (`react-reinspect/dist` deep-import), but is no longer part of the stable public runtime API.
 
 `autoWrapInspectable` is now internal-only and used by the transform plugins via `react-reinspect/internal/auto-wrap`.
-
-### `useReinspect()`
-
-Hook to read/update runtime inspector state from your own UI.
 
 ## Production Guidance
 

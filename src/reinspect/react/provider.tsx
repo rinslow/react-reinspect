@@ -12,6 +12,7 @@ import type {
   EditableStyleProp,
   InspectFilter,
   InspectMode,
+  PropsSerializationMode,
   RenderCounterMode,
   ReinspectContextValue,
   ReinspectProviderProps,
@@ -23,16 +24,44 @@ import {
   compileInspectFilterMatcher,
   isComponentNameInspectableByFilters,
   isInspectMode,
+  isPropsSerializationMode,
   isRenderCounterMode,
   normalizeInspectFilter,
   persistInspectBlacklist,
   persistInspectMode,
+  persistPropsSerializationMode,
   persistInspectWhitelist,
-  pickColorByComponentName,
   resolveReinspectConfig,
 } from '../utils'
 
 type SettingsTab = 'filter' | 'settings'
+
+const componentNameHashCache = new Map<string, number>()
+
+function hashComponentName(componentName: string): number {
+  const cachedHash = componentNameHashCache.get(componentName)
+  if (cachedHash !== undefined) {
+    return cachedHash
+  }
+
+  let hash = 0
+  for (let index = 0; index < componentName.length; index += 1) {
+    hash = Math.imul(31, hash) + componentName.charCodeAt(index)
+    hash |= 0
+  }
+
+  const unsignedHash = hash >>> 0
+  componentNameHashCache.set(componentName, unsignedHash)
+  return unsignedHash
+}
+
+function colorFromComponentNameHash(componentName: string): string {
+  const hash = hashComponentName(componentName)
+  const hue = hash % 360
+  const saturation = 64 + ((hash >>> 8) % 18)
+  const lightness = 46 + ((hash >>> 16) % 12)
+  return `hsl(${hue} ${saturation}% ${lightness}%)`
+}
 
 function InfoHint({
   label,
@@ -290,6 +319,7 @@ export function ReinspectProvider({
   config,
 }: ReinspectProviderProps) {
   const resolvedConfig = useMemo(() => resolveReinspectConfig(config), [config])
+  const colorCacheRef = useRef<Record<string, string>>({})
   const [state, dispatch] = useReducer(
     reinspectStateReducer,
     resolvedConfig,
@@ -372,6 +402,23 @@ export function ReinspectProvider({
     [state.renderCounterMode],
   )
 
+  const setPropsSerializationMode = useCallback(
+    (
+      value:
+        | PropsSerializationMode
+        | ((current: PropsSerializationMode) => PropsSerializationMode),
+    ) => {
+      const nextValue =
+        typeof value === 'function' ? value(state.propsSerializationMode) : value
+      dispatch({
+        type: 'set-props-serialization-mode',
+        value: nextValue,
+      })
+      persistPropsSerializationMode(nextValue)
+    },
+    [state.propsSerializationMode],
+  )
+
   const updateOverride = useCallback(
     (
       componentId: string,
@@ -433,11 +480,16 @@ export function ReinspectProvider({
     [inspectWhitelistMatcher, inspectBlacklistMatcher],
   )
 
-  const getBorderColor = useCallback(
-    (componentName: string) =>
-      pickColorByComponentName(componentName, resolvedConfig.palette),
-    [resolvedConfig.palette],
-  )
+  const getColor = useCallback((componentName: string) => {
+    const cachedColor = colorCacheRef.current[componentName]
+    if (cachedColor) {
+      return cachedColor
+    }
+
+    const nextColor = colorFromComponentNameHash(componentName)
+    colorCacheRef.current[componentName] = nextColor
+    return nextColor
+  }, [])
 
   const contextValue = useMemo<ReinspectContextValue>(
     () => ({
@@ -458,12 +510,14 @@ export function ReinspectProvider({
       isComponentInspectableByFilters,
       renderCounterMode: state.renderCounterMode,
       setRenderCounterMode,
+      propsSerializationMode: state.propsSerializationMode,
+      setPropsSerializationMode,
       renderCountComponents: state.renderCountComponents,
       setRenderCountingForComponent,
       isRenderCountingEnabledFor,
       overrides: state.overrides,
       updateOverride,
-      getBorderColor,
+      getColor,
     }),
     [
       resolvedConfig,
@@ -483,12 +537,14 @@ export function ReinspectProvider({
       isComponentInspectableByFilters,
       state.renderCounterMode,
       setRenderCounterMode,
+      state.propsSerializationMode,
+      setPropsSerializationMode,
       state.renderCountComponents,
       setRenderCountingForComponent,
       isRenderCountingEnabledFor,
       state.overrides,
       updateOverride,
-      getBorderColor,
+      getColor,
     ],
   )
 
@@ -517,6 +573,8 @@ export function ReinspectFloatingToggle() {
     inspectBlacklistInvalidPatterns,
     renderCounterMode,
     setRenderCounterMode,
+    propsSerializationMode,
+    setPropsSerializationMode,
   } = useReinspect()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTab>('filter')
@@ -731,6 +789,34 @@ export function ReinspectFloatingToggle() {
 
                 <p className="reinspect-setting-note">
                   Per-component capture can be toggled from each component menu.
+                </p>
+
+                <label className="reinspect-settings-select-row">
+                  <span className="reinspect-settings-toggle-label">
+                    Props JSON detail{' '}
+                    <InfoHint
+                      label="?"
+                      description="Choose how much data appears in JSON previews and the Raw props editor."
+                    />
+                  </span>
+                  <select
+                    data-testid="reinspect-setting-props-serialization-mode"
+                    value={propsSerializationMode}
+                    onChange={(event) => {
+                      const nextMode = event.currentTarget.value
+                      if (isPropsSerializationMode(nextMode)) {
+                        setPropsSerializationMode(nextMode)
+                      }
+                    }}
+                  >
+                    <option value="distilled">Distilled (recommended)</option>
+                    <option value="complete">Complete (includes internals)</option>
+                  </select>
+                </label>
+                <p className="reinspect-setting-helper-text">
+                  {propsSerializationMode === 'distilled'
+                    ? 'Shows app-level props first and hides React internals like _owner.'
+                    : 'Shows the full object graph, including React internals and metadata.'}
                 </p>
               </section>
             </div>

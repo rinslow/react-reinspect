@@ -1,3 +1,5 @@
+import type { PropsSerializationMode } from './types'
+
 const MAX_SERIALIZE_DEPTH = 4
 const MAX_SERIALIZE_OBJECT_KEYS = 40
 const MAX_SERIALIZE_ARRAY_ITEMS = 40
@@ -54,6 +56,18 @@ export interface DetectedPropsRow {
   key: string
   value: InspectedValueDescriptor
 }
+
+interface SerializationOptions {
+  mode?: PropsSerializationMode
+}
+
+const REACT_ELEMENT_INTERNAL_KEYS = new Set([
+  '$$typeof',
+  '_owner',
+  '_store',
+  '_self',
+  '_source',
+])
 
 function buildPlaceholder(
   kind: PlaceholderKind,
@@ -116,10 +130,33 @@ function getFunctionPreview(source: string): string {
   return `${compact.slice(0, 117)}...`
 }
 
+function resolveSerializationMode(
+  options?: SerializationOptions,
+): PropsSerializationMode {
+  return options?.mode === 'complete' ? 'complete' : 'distilled'
+}
+
+function isReactElementLikeRecord(value: Record<string, unknown>): boolean {
+  return '$$typeof' in value && 'props' in value
+}
+
+function getSerializableObjectEntries(
+  value: Record<string, unknown>,
+  mode: PropsSerializationMode,
+): Array<[string, unknown]> {
+  const entries = Object.entries(value)
+  if (mode !== 'distilled' || !isReactElementLikeRecord(value)) {
+    return entries
+  }
+
+  return entries.filter(([key]) => !REACT_ELEMENT_INTERNAL_KEYS.has(key))
+}
+
 function toJsonSerializable(
   value: unknown,
   stack: WeakSet<object>,
   depth: number,
+  mode: PropsSerializationMode,
 ): unknown {
   if (depth > MAX_SERIALIZE_DEPTH) {
     return buildPlaceholder('truncated', '[Max depth reached]')
@@ -182,7 +219,9 @@ function toJsonSerializable(
       const maxItems = Math.min(value.length, MAX_SERIALIZE_ARRAY_ITEMS)
 
       for (let index = 0; index < maxItems; index += 1) {
-        serializedArray.push(toJsonSerializable(value[index], stack, depth + 1))
+        serializedArray.push(
+          toJsonSerializable(value[index], stack, depth + 1, mode),
+        )
       }
 
       if (value.length > MAX_SERIALIZE_ARRAY_ITEMS) {
@@ -199,7 +238,10 @@ function toJsonSerializable(
     }
 
     const serializedObject: Record<string, unknown> = {}
-    const entries = Object.entries(value as Record<string, unknown>)
+    const entries = getSerializableObjectEntries(
+      value as Record<string, unknown>,
+      mode,
+    )
     const maxEntries = Math.min(entries.length, MAX_SERIALIZE_OBJECT_KEYS)
 
     for (let index = 0; index < maxEntries; index += 1) {
@@ -209,7 +251,12 @@ function toJsonSerializable(
       }
 
       const [key, nestedValue] = entry
-      serializedObject[key] = toJsonSerializable(nestedValue, stack, depth + 1)
+      serializedObject[key] = toJsonSerializable(
+        nestedValue,
+        stack,
+        depth + 1,
+        mode,
+      )
     }
 
     if (entries.length > MAX_SERIALIZE_OBJECT_KEYS) {
@@ -392,13 +439,29 @@ export function buildDetectedPropsRows(
 
 export function serializePropsForRawEditor(
   props: Record<string, unknown>,
+  options?: SerializationOptions,
 ): string {
-  const serialized = toJsonSerializable(props, new WeakSet<object>(), 0)
+  const serialized = toJsonSerializable(
+    props,
+    new WeakSet<object>(),
+    0,
+    resolveSerializationMode(options),
+  )
   return stringifyJson(serialized) ?? '{}'
 }
 
-export function serializeValueForJson(value: unknown): string | null {
-  return stringifyJson(toJsonSerializable(value, new WeakSet<object>(), 0))
+export function serializeValueForJson(
+  value: unknown,
+  options?: SerializationOptions,
+): string | null {
+  return stringifyJson(
+    toJsonSerializable(
+      value,
+      new WeakSet<object>(),
+      0,
+      resolveSerializationMode(options),
+    ),
+  )
 }
 
 export function isEditablePropValue(value: unknown): boolean {

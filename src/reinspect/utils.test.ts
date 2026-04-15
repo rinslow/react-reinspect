@@ -5,6 +5,7 @@ import {
   normalizeInspectFilter,
   REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY,
   REINSPECT_INSPECT_WHITELIST_STORAGE_KEY,
+  REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY,
   resolveReinspectConfig,
 } from './utils'
 
@@ -153,5 +154,18 @@ describe('inspect filter utils', () => {
       wholeWord: false,
       matchCase: true,
     })
+  })
+
+  it('resolves session-stored props detail mode over config mode', () => {
+    window.sessionStorage.setItem(
+      REINSPECT_PROPS_SERIALIZATION_MODE_STORAGE_KEY,
+      'complete',
+    )
+
+    const resolved = resolveReinspectConfig({
+      propsSerializationMode: 'distilled',
+    })
+
+    expect(resolved.propsSerializationMode).toBe('complete')
   })
 })

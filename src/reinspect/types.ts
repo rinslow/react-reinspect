@@ -3,6 +3,7 @@ import type { CSSProperties, Dispatch, ReactNode, SetStateAction } from 'react'
 export type InspectMode = 'wrapped' | 'first-party' | 'all'
 export type AutoDiscoverScope = 'first-party' | 'third-party'
 export type RenderCounterMode = 'off' | 'attempts' | 'commits' | 'both'
+export type PropsSerializationMode = 'distilled' | 'complete'
 
 export interface InspectFilter {
   patterns: readonly string[]
@@ -52,10 +53,10 @@ export interface ReinspectConfig extends LegacyReinspectConfig {
   inspectWhitelist?: InspectFilterConfig
   inspectBlacklist?: InspectFilterConfig
   editableProps?: readonly EditableStyleProp[]
-  palette?: readonly string[]
   zIndexBase?: number
   renderCounters?: RenderCounterMode
   countRendersForComponents?: readonly string[]
+  propsSerializationMode?: PropsSerializationMode
 }
 
 export interface ResolvedReinspectConfig {
@@ -66,10 +67,10 @@ export interface ResolvedReinspectConfig {
   inspectWhitelist: InspectFilter
   inspectBlacklist: InspectFilter
   editableProps: readonly EditableStyleProp[]
-  palette: readonly string[]
   zIndexBase: number
   renderCounters: RenderCounterMode
   countRendersForComponents: readonly string[]
+  propsSerializationMode: PropsSerializationMode
 }
 
 export interface ReinspectContextValue {
@@ -90,6 +91,8 @@ export interface ReinspectContextValue {
   isComponentInspectableByFilters: (componentName: string) => boolean
   renderCounterMode: RenderCounterMode
   setRenderCounterMode: Dispatch<SetStateAction<RenderCounterMode>>
+  propsSerializationMode: PropsSerializationMode
+  setPropsSerializationMode: Dispatch<SetStateAction<PropsSerializationMode>>
   renderCountComponents: Record<string, true>
   setRenderCountingForComponent: (componentName: string, enabled: boolean) => void
   isRenderCountingEnabledFor: (componentName: string) => boolean
@@ -99,7 +102,7 @@ export interface ReinspectContextValue {
     prop: EditableStyleProp,
     value: StyleOverrideValue | undefined,
   ) => void
-  getBorderColor: (componentName: string) => string
+  getColor: (componentName: string) => string
 }
 
 export interface ReinspectProviderProps {

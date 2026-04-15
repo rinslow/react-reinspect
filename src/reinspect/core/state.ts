@@ -3,6 +3,7 @@ import type {
   EditableStyleProp,
   InspectFilter,
   InspectMode,
+  PropsSerializationMode,
   RenderCounterMode,
   ResolvedReinspectConfig,
   StyleOverrideValue,
@@ -15,6 +16,7 @@ export interface ReinspectState {
   inspectWhitelist: InspectFilter
   inspectBlacklist: InspectFilter
   renderCounterMode: RenderCounterMode
+  propsSerializationMode: PropsSerializationMode
   renderCountComponents: Record<string, true>
   overrides: Record<string, ComponentStyleOverrides>
 }
@@ -49,6 +51,11 @@ interface SetRenderCounterModeAction {
   value: RenderCounterMode
 }
 
+interface SetPropsSerializationModeAction {
+  type: 'set-props-serialization-mode'
+  value: PropsSerializationMode
+}
+
 interface SetRenderCountingForComponentAction {
   type: 'set-render-counting-for-component'
   componentName: string
@@ -69,6 +76,7 @@ export type ReinspectStateAction =
   | SetInspectWhitelistAction
   | SetInspectBlacklistAction
   | SetRenderCounterModeAction
+  | SetPropsSerializationModeAction
   | SetRenderCountingForComponentAction
   | UpdateOverrideAction
 
@@ -93,6 +101,7 @@ export function buildInitialReinspectState(
     inspectWhitelist: config.inspectWhitelist,
     inspectBlacklist: config.inspectBlacklist,
     renderCounterMode: config.renderCounters,
+    propsSerializationMode: config.propsSerializationMode,
     renderCountComponents: buildRenderCountComponentMap(
       config.countRendersForComponents,
     ),
@@ -150,6 +159,7 @@ export function reinspectStateReducer(
         inspectWhitelist: action.config.inspectWhitelist,
         inspectBlacklist: action.config.inspectBlacklist,
         renderCounterMode: action.config.renderCounters,
+        propsSerializationMode: action.config.propsSerializationMode,
         renderCountComponents: nextRenderCountComponents,
       }
 
@@ -166,6 +176,7 @@ export function reinspectStateReducer(
           state.inspectBlacklist,
         ) &&
         nextState.renderCounterMode === state.renderCounterMode &&
+        nextState.propsSerializationMode === state.propsSerializationMode &&
         shallowEqualStringArray(
           Object.keys(nextState.renderCountComponents),
           Object.keys(state.renderCountComponents),
@@ -224,6 +235,15 @@ export function reinspectStateReducer(
       return {
         ...state,
         renderCounterMode: action.value,
+      }
+
+    case 'set-props-serialization-mode':
+      if (state.propsSerializationMode === action.value) {
+        return state
+      }
+      return {
+        ...state,
+        propsSerializationMode: action.value,
       }
 
     case 'set-render-counting-for-component': {

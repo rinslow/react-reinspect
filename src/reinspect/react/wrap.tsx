@@ -77,16 +77,16 @@ const FALLBACK_CONFIG = {
     matchCase: false,
   },
   editableProps: [] as const,
-  palette: [] as const,
   zIndexBase: 0,
   renderCounters: 'off' as const,
   countRendersForComponents: [] as const,
+  propsSerializationMode: 'distilled' as const,
 }
 
 let instanceSequence = 0
 const MENU_VIEWPORT_MARGIN = 12
-const MENU_ESTIMATED_WIDTH = 360
-const MENU_ESTIMATED_HEIGHT = 520
+const MENU_ESTIMATED_WIDTH = 560
+const MENU_ESTIMATED_HEIGHT = 620
 
 function createInstanceId(componentName: string): string {
   instanceSequence += 1
@@ -144,6 +144,34 @@ function appendUniquePattern(
   pattern: string,
 ): string[] {
   return patterns.includes(pattern) ? [...patterns] : [...patterns, pattern]
+}
+
+function togglePattern(patterns: readonly string[], pattern: string): string[] {
+  return patterns.includes(pattern)
+    ? patterns.filter((value) => value !== pattern)
+    : appendUniquePattern(patterns, pattern)
+}
+
+function renderCopyIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M5.5 1.75A1.75 1.75 0 0 0 3.75 3.5v7c0 .966.784 1.75 1.75 1.75h7a1.75 1.75 0 0 0 1.75-1.75v-7a1.75 1.75 0 0 0-1.75-1.75h-7Zm-.25 1.75c0-.138.112-.25.25-.25h7c.138 0 .25.112.25.25v7a.25.25 0 0 1-.25.25h-7a.25.25 0 0 1-.25-.25v-7ZM1.75 6.5a.75.75 0 0 1 1.5 0v6c0 .966.784 1.75 1.75 1.75h6a.75.75 0 0 1 0 1.5h-6A3.25 3.25 0 0 1 1.75 12.5v-6Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+function renderEditIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M11.86 1.52a1.8 1.8 0 0 1 2.55 2.55l-7.12 7.12a.75.75 0 0 1-.35.2l-3 0a.75.75 0 0 1-.75-.75l0-3a.75.75 0 0 1 .2-.35l7.12-7.12Zm1.49 1.06a.3.3 0 0 0-.43 0L6.1 9.4l-.16.5.5-.16 6.82-6.82a.3.3 0 0 0 0-.43l.09.09Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -257,13 +285,16 @@ export function withReinspectInternal<P extends object>(
     const reinspectContext = useContext(ReinspectContext)
     const hasReinspectContext = Boolean(reinspectContext)
     const config = reinspectContext?.config ?? FALLBACK_CONFIG
-    const getBorderColor =
-      reinspectContext?.getBorderColor ??
+    const getColor =
+      reinspectContext?.getColor ??
       (() => '#f97316')
     const isActive = reinspectContext?.isActive ?? false
     const inspectMode = reinspectContext?.inspectMode ?? 'wrapped'
     const renderCounterMode =
       reinspectContext?.renderCounterMode ?? FALLBACK_CONFIG.renderCounters
+    const propsSerializationMode =
+      reinspectContext?.propsSerializationMode ??
+      FALLBACK_CONFIG.propsSerializationMode
     const overrides = reinspectContext?.overrides ?? {}
     const updateOverride =
       reinspectContext?.updateOverride ??
@@ -275,6 +306,8 @@ export function withReinspectInternal<P extends object>(
     const setInspectWhitelist =
       reinspectContext?.setInspectWhitelist ??
       (() => undefined)
+    const inspectWhitelist =
+      reinspectContext?.inspectWhitelist ?? FALLBACK_CONFIG.inspectWhitelist
     const setInspectBlacklist =
       reinspectContext?.setInspectBlacklist ??
       (() => undefined)
@@ -286,7 +319,7 @@ export function withReinspectInternal<P extends object>(
       instanceIdRef.current = createInstanceId(componentName)
     }
     const instanceId = instanceIdRef.current
-    const borderColor = getBorderColor(componentName)
+    const borderColor = getColor(componentName)
     const inspectableByCurrentMode = isInspectableByMode(
       requestedSource,
       requestedScope,
@@ -318,7 +351,7 @@ export function withReinspectInternal<P extends object>(
     const renderedProps = { ...props, ...propsOverrides } as P
     const effectiveProps = renderedProps as Record<string, unknown>
 
-    const menuOpen = inspectorActive && menuPosition !== null
+    const menuOpen = menuPosition !== null
     const normalizedCssFilter = normalizeCssPropertyFilter(cssFilter)
     const filteredEditableProps =
       normalizedCssFilter.length === 0
@@ -397,6 +430,21 @@ export function withReinspectInternal<P extends object>(
         document.removeEventListener('keydown', handleEscape)
       }
     }, [editingPropKey, menuOpen])
+
+    useEffect(() => {
+      if (!menuOpen) {
+        return
+      }
+
+      if (config.enabled && isActive && inspectableByCurrentMode) {
+        return
+      }
+
+      setMenuPosition(null)
+      setEditingPropKey(null)
+      setEditingDraft('')
+      setEditingError(null)
+    }, [config.enabled, inspectableByCurrentMode, isActive, menuOpen])
 
     useEffect(() => {
       if (!propsCopyStatus) {
@@ -481,7 +529,11 @@ export function withReinspectInternal<P extends object>(
     const resetPropsOverrides = () => {
       setPropsOverrides({})
       if (propsPanelView === 'raw') {
-        setPropsDraft(serializePropsForRawEditor(props as Record<string, unknown>))
+        setPropsDraft(
+          serializePropsForRawEditor(props as Record<string, unknown>, {
+            mode: propsSerializationMode,
+          }),
+        )
       }
       setPropsError(null)
     }
@@ -492,6 +544,27 @@ export function withReinspectInternal<P extends object>(
           didCopy ? `${label} copied.` : 'Clipboard access is unavailable.',
         )
       })
+    }
+
+    const copyJsonPreviewForProp = (propKey: string, propValue: unknown) => {
+      const cachedPreview = jsonPreviewByProp[propKey]
+      const serialized =
+        cachedPreview ??
+        serializeValueForJson(propValue, { mode: propsSerializationMode })
+
+      if (!serialized) {
+        setPropsCopyStatus('JSON preview is unavailable for this value.')
+        return
+      }
+
+      if (!cachedPreview) {
+        setJsonPreviewByProp((current) => ({
+          ...current,
+          [propKey]: serialized,
+        }))
+      }
+
+      copyPropsText(serialized, 'JSON value')
     }
 
     const toggleJsonPreviewForProp = (propKey: string, propValue: unknown) => {
@@ -505,7 +578,9 @@ export function withReinspectInternal<P extends object>(
       }
 
       if (!(propKey in jsonPreviewByProp) && !(propKey in jsonPreviewErrorByProp)) {
-        const serialized = serializeValueForJson(propValue)
+        const serialized = serializeValueForJson(propValue, {
+          mode: propsSerializationMode,
+        })
         if (serialized === null) {
           setJsonPreviewErrorByProp((current) => ({
             ...current,
@@ -530,7 +605,9 @@ export function withReinspectInternal<P extends object>(
         return
       }
 
-      const serialized = serializeValueForJson(propValue)
+      const serialized = serializeValueForJson(propValue, {
+        mode: propsSerializationMode,
+      })
       if (serialized === null) {
         setPropsCopyStatus('Unable to open editor for this value.')
         return
@@ -565,9 +642,10 @@ export function withReinspectInternal<P extends object>(
     const includeAllComponentInstances = () => {
       setInspectWhitelist((current) => ({
         ...current,
-        patterns: appendUniquePattern(current.patterns, componentName),
+        patterns: togglePattern(current.patterns, componentName),
       }))
     }
+    const includeFilterActive = inspectWhitelist.patterns.includes(componentName)
 
     const excludeAllComponentInstances = () => {
       setInspectBlacklist((current) => ({
@@ -583,6 +661,16 @@ export function withReinspectInternal<P extends object>(
         className="reinspect-menu"
         role="dialog"
         aria-label={`${componentName} controls`}
+        onMouseDown={(event) => {
+          event.stopPropagation()
+        }}
+        onClick={(event) => {
+          event.stopPropagation()
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+        }}
         style={{
           top: `${menuPosition.y}px`,
           left: `${menuPosition.x}px`,
@@ -644,6 +732,7 @@ export function withReinspectInternal<P extends object>(
                   className="reinspect-menu-action-card"
                   onClick={includeAllComponentInstances}
                   data-testid={`reinspect-include-component-${componentName}`}
+                  data-state={includeFilterActive ? 'active' : 'idle'}
                   aria-label={`Only inspect ${componentName} components`}
                 >
                   <span className="reinspect-menu-action-title">
@@ -922,7 +1011,11 @@ export function withReinspectInternal<P extends object>(
                 onClick={() => {
                   setPropsPanelView('raw')
                   setPropsError(null)
-                  setPropsDraft(serializePropsForRawEditor(effectiveProps))
+                  setPropsDraft(
+                    serializePropsForRawEditor(effectiveProps, {
+                      mode: propsSerializationMode,
+                    }),
+                  )
                 }}
               >
                 Raw
@@ -932,11 +1025,6 @@ export function withReinspectInternal<P extends object>(
             {propsPanelView === 'detected' ? (
               detectedPropsRows.length > 0 ? (
                 <div className="reinspect-props-table">
-                  <div className="reinspect-props-header">
-                    <span>Key</span>
-                    <span>Value</span>
-                  </div>
-
                   {detectedPropsRows.map((row) => {
                     const rowTestIdSegment = toDataTestIdSegment(row.key)
                     const propValue = effectiveProps[row.key]
@@ -957,38 +1045,99 @@ export function withReinspectInternal<P extends object>(
                           className="reinspect-prop-cell"
                           data-testid={`reinspect-prop-value-${rowTestIdSegment}`}
                         >
-                          {renderPropsValueTree({
-                            value: row.value,
-                            onCopy: copyPropsText,
-                          })}
-
-                          {isJsonPreviewSupported || canEdit ? (
-                            <div className="reinspect-prop-actions">
-                              {isJsonPreviewSupported ? (
-                                <button
-                                  type="button"
-                                  data-testid={`reinspect-prop-show-json-${rowTestIdSegment}`}
-                                  onClick={() =>
-                                    toggleJsonPreviewForProp(row.key, propValue)
-                                  }
-                                >
-                                  {isJsonOpen ? 'Hide JSON' : 'Show JSON'}
-                                </button>
-                              ) : null}
-
-                              {canEdit ? (
-                                <button
-                                  type="button"
-                                  data-testid={`reinspect-prop-edit-${rowTestIdSegment}`}
-                                  onClick={() =>
-                                    openEditModalForProp(row.key, propValue)
-                                  }
-                                >
-                                  Edit
-                                </button>
-                              ) : null}
+                          <div className="reinspect-prop-main">
+                            <div className="reinspect-prop-value-render">
+                              {renderPropsValueTree({
+                                value: row.value,
+                              })}
                             </div>
-                          ) : null}
+
+                            {isJsonPreviewSupported ||
+                            canEdit ||
+                            Boolean(row.value.copyText) ? (
+                              <div className="reinspect-prop-actions">
+                                {isJsonPreviewSupported ? (
+                                  <button
+                                    type="button"
+                                    data-testid={`reinspect-prop-show-json-${rowTestIdSegment}`}
+                                    onClick={() =>
+                                      toggleJsonPreviewForProp(row.key, propValue)
+                                    }
+                                    className="reinspect-prop-action-text-button"
+                                    title={
+                                      isJsonOpen
+                                        ? 'Collapse JSON preview'
+                                        : 'Expand JSON preview'
+                                    }
+                                    aria-label={
+                                      isJsonOpen
+                                        ? `Collapse JSON preview for ${row.key}`
+                                        : `Expand JSON preview for ${row.key}`
+                                    }
+                                  >
+                                    {isJsonOpen ? 'Collapse JSON' : 'Expand JSON'}
+                                  </button>
+                                ) : null}
+
+                                {canEdit ? (
+                                  <button
+                                    type="button"
+                                    data-testid={`reinspect-prop-edit-${rowTestIdSegment}`}
+                                    onClick={() =>
+                                      openEditModalForProp(row.key, propValue)
+                                    }
+                                    className="reinspect-icon-button"
+                                    title="Edit value"
+                                    aria-label={`Edit ${row.key}`}
+                                  >
+                                    {renderEditIcon()}
+                                  </button>
+                                ) : null}
+
+                                {(isJsonPreviewSupported
+                                  ? true
+                                  : Boolean(row.value.copyText)) ? (
+                                  <button
+                                    type="button"
+                                    className="reinspect-icon-button"
+                                    title={
+                                      row.value.kind === 'function'
+                                        ? 'Copy function source'
+                                        : isJsonPreviewSupported
+                                          ? 'Copy JSON'
+                                          : 'Copy value'
+                                    }
+                                    aria-label={
+                                      row.value.kind === 'function'
+                                        ? 'Copy function source'
+                                        : isJsonPreviewSupported
+                                          ? `Copy JSON for ${row.key}`
+                                          : `Copy value for ${row.key}`
+                                    }
+                                    onClick={() => {
+                                      if (isJsonPreviewSupported) {
+                                        copyJsonPreviewForProp(row.key, propValue)
+                                        return
+                                      }
+
+                                      if (!row.value.copyText) {
+                                        return
+                                      }
+
+                                      copyPropsText(
+                                        row.value.copyText,
+                                        row.value.kind === 'function'
+                                          ? 'Function source'
+                                          : 'Value',
+                                      )
+                                    }}
+                                  >
+                                    {renderCopyIcon()}
+                                  </button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
 
                           {isJsonOpen ? (
                             <div
@@ -1000,17 +1149,6 @@ export function withReinspectInternal<P extends object>(
                               ) : (
                                 <>
                                   <pre>{jsonPreview}</pre>
-                                  {jsonPreview ? (
-                                    <button
-                                      type="button"
-                                      data-testid={`reinspect-prop-copy-json-${rowTestIdSegment}`}
-                                      onClick={() =>
-                                        copyPropsText(jsonPreview, 'JSON value')
-                                      }
-                                    >
-                                      Copy JSON
-                                    </button>
-                                  ) : null}
                                 </>
                               )}
                             </div>
@@ -1113,7 +1251,7 @@ export function withReinspectInternal<P extends object>(
       return <SourceComponent {...renderedProps} />
     }
 
-    if (!inspectorActive) {
+    if (!inspectorActive && !menuOpen) {
       return <SourceComponent {...renderedProps} />
     }
 

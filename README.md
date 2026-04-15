@@ -13,8 +13,15 @@ Inspect and tweak React components live, directly in your running app.
 
 ![react-reinspect runtime inspector example](docs/assets/reinspect-showcase-demo-app.gif)
 
+## Install with Agent
+```bash
+npx skills add rinslow/react-reinspect --skill react-reinspect
+```
 
-## Install
+Then run `/react-reinspect` to integrate it into your project.
+
+
+## Install Manually
 
 ```bash
 pnpm add react-reinspect

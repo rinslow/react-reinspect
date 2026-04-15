@@ -15,7 +15,12 @@
     "url": "https://github.com/rinslow"
   },
   "publishConfig": {
+<<<<<<< HEAD
     "access": "public"
+=======
+    "access": "public",
+    "provenance": true
+>>>>>>> eafd8f2c59cfc872b3426c13aa168f0aea45fc02
   },
   "keywords": [
     "react",

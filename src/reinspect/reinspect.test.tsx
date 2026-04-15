@@ -1040,6 +1040,13 @@ describe('Reinspect', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Props' }))
     await user.click(within(dialog).getByRole('button', { name: 'Raw' }))
     const textarea = within(dialog).getByLabelText('Props JSON')
+    expect(
+      within(dialog)
+        .getByText('Props JSON')
+        .parentElement?.querySelector(
+          '.reinspect-json-editor code.language-json.reinspect-code-block',
+        ),
+    ).not.toBeNull()
     fireEvent.change(textarea, {
       target: { value: '{"message":"overridden"}' },
     })

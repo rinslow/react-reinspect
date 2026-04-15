@@ -1061,6 +1061,51 @@
   gap: 6px;
 }
 
+.reinspect-json-editor {
+  display: grid;
+  border: 1px solid var(--reinspect-menu-border);
+  border-radius: 8px;
+  background: var(--reinspect-prism-bg);
+  overflow: hidden;
+}
+
+.reinspect-json-editor pre,
+.reinspect-json-editor textarea {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  font-family: var(--reinspect-font-mono);
+  white-space: pre;
+  word-break: normal;
+}
+
+.reinspect-json-editor pre {
+  pointer-events: none;
+  overflow: auto;
+}
+
+.reinspect-props-panel .reinspect-json-editor .reinspect-json-editor-textarea {
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--reinspect-prism-text);
+  resize: vertical;
+  overflow: auto;
+  tab-size: 2;
+}
+
+.reinspect-props-panel .reinspect-json-editor .reinspect-json-editor-textarea:focus-visible {
+  outline: none;
+}
+
+.reinspect-json-editor:focus-within {
+  box-shadow: 0 0 0 2px var(--reinspect-focus-ring);
+}
+
 .reinspect-prop-json-preview pre {
   margin: 0;
   border: 1px solid var(--reinspect-menu-border-subtle);
@@ -1076,7 +1121,8 @@
 }
 
 .reinspect-prop-function pre code.reinspect-code-block,
-.reinspect-prop-json-preview pre code.reinspect-code-block {
+.reinspect-prop-json-preview pre code.reinspect-code-block,
+.reinspect-json-editor pre code.reinspect-code-block {
   display: block;
   color: var(--reinspect-prism-text);
   font-family: var(--reinspect-font-mono);
@@ -1091,18 +1137,24 @@
 .reinspect-prop-json-preview pre code.reinspect-code-block .token.comment,
 .reinspect-prop-json-preview pre code.reinspect-code-block .token.prolog,
 .reinspect-prop-json-preview pre code.reinspect-code-block .token.doctype,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.cdata {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.cdata,
+.reinspect-json-editor pre code.reinspect-code-block .token.comment,
+.reinspect-json-editor pre code.reinspect-code-block .token.prolog,
+.reinspect-json-editor pre code.reinspect-code-block .token.doctype,
+.reinspect-json-editor pre code.reinspect-code-block .token.cdata {
   color: var(--reinspect-prism-comment);
   font-style: italic;
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.punctuation,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.punctuation {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.punctuation,
+.reinspect-json-editor pre code.reinspect-code-block .token.punctuation {
   color: var(--reinspect-prism-punctuation);
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.property,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.property {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.property,
+.reinspect-json-editor pre code.reinspect-code-block .token.property {
   color: var(--reinspect-prism-property);
 }
 
@@ -1111,39 +1163,49 @@
 .reinspect-prop-function pre code.reinspect-code-block .token.char,
 .reinspect-prop-json-preview pre code.reinspect-code-block .token.char,
 .reinspect-prop-function pre code.reinspect-code-block .token.regex,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.regex {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.regex,
+.reinspect-json-editor pre code.reinspect-code-block .token.string,
+.reinspect-json-editor pre code.reinspect-code-block .token.char,
+.reinspect-json-editor pre code.reinspect-code-block .token.regex {
   color: var(--reinspect-prism-string);
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.number,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.number {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.number,
+.reinspect-json-editor pre code.reinspect-code-block .token.number {
   color: var(--reinspect-prism-number);
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.boolean,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.boolean {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.boolean,
+.reinspect-json-editor pre code.reinspect-code-block .token.boolean {
   color: var(--reinspect-prism-boolean);
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.keyword,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.keyword {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.keyword,
+.reinspect-json-editor pre code.reinspect-code-block .token.keyword {
   color: var(--reinspect-prism-keyword);
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.function,
 .reinspect-prop-json-preview pre code.reinspect-code-block .token.function,
 .reinspect-prop-function pre code.reinspect-code-block .token.function-variable,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.function-variable {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.function-variable,
+.reinspect-json-editor pre code.reinspect-code-block .token.function,
+.reinspect-json-editor pre code.reinspect-code-block .token.function-variable {
   color: var(--reinspect-prism-function);
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.operator,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.operator {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.operator,
+.reinspect-json-editor pre code.reinspect-code-block .token.operator {
   color: var(--reinspect-prism-operator);
 }
 
 .reinspect-prop-function pre code.reinspect-code-block .token.constant,
-.reinspect-prop-json-preview pre code.reinspect-code-block .token.constant {
+.reinspect-prop-json-preview pre code.reinspect-code-block .token.constant,
+.reinspect-json-editor pre code.reinspect-code-block .token.constant {
   color: var(--reinspect-prism-constant);
 }
 

@@ -297,6 +297,7 @@ export function withReinspectInternal<P extends object>(
     const instanceIdRef = useRef<string | null>(null)
     const menuRef = useRef<HTMLDivElement | null>(null)
     const editModalRef = useRef<HTMLDivElement | null>(null)
+    const rawJsonPreviewRef = useRef<HTMLPreElement | null>(null)
 
     const [menuPosition, setMenuPosition] = useState<{
       x: number
@@ -1313,15 +1314,37 @@ export function withReinspectInternal<P extends object>(
             ) : (
               <>
                 <label htmlFor={`${instanceId}-props-json`}>Props JSON</label>
-                <textarea
-                  id={`${instanceId}-props-json`}
-                  value={propsDraft}
-                  onChange={(event) => {
-                    setPropsDraft(event.currentTarget.value)
-                    setPropsError(null)
-                  }}
-                  rows={9}
-                />
+                <div className="reinspect-json-editor">
+                  <pre aria-hidden="true" ref={rawJsonPreviewRef}>
+                    <code
+                      className="language-json reinspect-code-block"
+                      dangerouslySetInnerHTML={{
+                        __html: highlightCode(propsDraft, 'json'),
+                      }}
+                    />
+                  </pre>
+                  <textarea
+                    id={`${instanceId}-props-json`}
+                    value={propsDraft}
+                    onChange={(event) => {
+                      setPropsDraft(event.currentTarget.value)
+                      setPropsError(null)
+                    }}
+                    onScroll={(event) => {
+                      const preview = rawJsonPreviewRef.current
+                      if (!preview) {
+                        return
+                      }
+
+                      preview.scrollTop = event.currentTarget.scrollTop
+                      preview.scrollLeft = event.currentTarget.scrollLeft
+                    }}
+                    rows={9}
+                    spellCheck={false}
+                    className="reinspect-json-editor-textarea"
+                    data-testid="reinspect-raw-props-textarea"
+                  />
+                </div>
                 {propsError ? <p className="reinspect-error">{propsError}</p> : null}
                 <div className="reinspect-inline-controls">
                   <button type="button" onClick={applyPropsOverrides}>

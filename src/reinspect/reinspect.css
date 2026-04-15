@@ -84,6 +84,7 @@
 .reinspect-settings-menu[data-reinspect-theme='dark'],
 .reinspect-modal-backdrop[data-reinspect-theme='dark'],
 .reinspect-modal[data-reinspect-theme='dark'],
+.reinspect-toast[data-reinspect-theme='dark'],
 .reinspect-floating-root[data-reinspect-theme='dark'],
 .reinspect-floating-toggle[data-reinspect-theme='dark'] {
   --reinspect-menu-bg: oklch(0.19 0.018 252);
@@ -172,6 +173,7 @@
 .reinspect-settings-menu[data-reinspect-theme='light'],
 .reinspect-modal-backdrop[data-reinspect-theme='light'],
 .reinspect-modal[data-reinspect-theme='light'],
+.reinspect-toast[data-reinspect-theme='light'],
 .reinspect-floating-root[data-reinspect-theme='light'],
 .reinspect-floating-toggle[data-reinspect-theme='light'] {
   color-scheme: light;
@@ -181,6 +183,7 @@
 .reinspect-settings-menu[data-reinspect-theme='dark'],
 .reinspect-modal-backdrop[data-reinspect-theme='dark'],
 .reinspect-modal[data-reinspect-theme='dark'],
+.reinspect-toast[data-reinspect-theme='dark'],
 .reinspect-floating-root[data-reinspect-theme='dark'],
 .reinspect-floating-toggle[data-reinspect-theme='dark'] {
   color-scheme: dark;
@@ -1275,6 +1278,83 @@
 .reinspect-props-panel textarea::placeholder {
   color: var(--reinspect-menu-text-soft);
   opacity: 1;
+}
+
+.reinspect-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  z-index: 2147483647;
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 20px));
+  border: 1px solid var(--reinspect-menu-border-strong);
+  border-radius: 12px;
+  background: color-mix(
+    in oklch,
+    var(--reinspect-menu-bg) 88%,
+    var(--reinspect-brand-500)
+  );
+  box-shadow: var(--reinspect-shadow-modal);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.reinspect-toast-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.reinspect-toast-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--reinspect-menu-text);
+}
+
+.reinspect-toast-description {
+  margin: 0;
+  font-size: 11px;
+  color: var(--reinspect-menu-text-muted);
+}
+
+.reinspect-toast-undo,
+.reinspect-toast-dismiss {
+  border: 1px solid var(--reinspect-menu-border);
+  border-radius: 8px;
+  background: var(--reinspect-menu-bg);
+  color: var(--reinspect-menu-text);
+  cursor: pointer;
+}
+
+.reinspect-toast-undo {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.reinspect-toast-dismiss {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.reinspect-toast-undo:hover,
+.reinspect-toast-dismiss:hover {
+  border-color: var(--reinspect-brand-400);
+  background: var(--reinspect-brand-soft);
+}
+
+.reinspect-toast-undo:focus-visible,
+.reinspect-toast-dismiss:focus-visible {
+  outline: 2px solid var(--reinspect-focus-ring);
+  outline-offset: 1px;
 }
 
 .reinspect-error {

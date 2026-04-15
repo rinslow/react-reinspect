@@ -695,6 +695,48 @@ describe('Reinspect', () => {
     ).toContain('ExcludeCard')
   })
 
+  it('shows undo toast when excluding a component and restores on undo', async () => {
+    const user = userEvent.setup()
+
+    const ToastCard = withReinspect(function ToastCard() {
+      return <p>toast card</p>
+    }, { name: 'ToastCard' })
+    const OtherCard = withReinspect(function OtherCard() {
+      return <p>other card</p>
+    }, { name: 'OtherCard' })
+
+    renderWithReinspect(
+      <>
+        <ToastCard />
+        <OtherCard />
+      </>,
+      {
+        enabled: true,
+        startActive: true,
+        showFloatingToggle: true,
+      },
+    )
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-ToastCard'))
+    const dialog = screen.getByRole('dialog', { name: 'ToastCard controls' })
+    await user.click(within(dialog).getByTestId('reinspect-exclude-component-ToastCard'))
+
+    const toast = screen.getByTestId('reinspect-hide-component-toast')
+    expect(toast).toHaveTextContent('Hidden ToastCard')
+    expect(toast).toHaveAttribute('data-reinspect-theme', 'light')
+    expect(screen.queryByTestId('reinspect-shell-ToastCard')).toBeNull()
+
+    await user.click(screen.getByTestId('reinspect-hide-component-undo'))
+
+    expect(screen.queryByTestId('reinspect-hide-component-toast')).toBeNull()
+    expect(screen.getByTestId('reinspect-shell-ToastCard')).toBeInTheDocument()
+    expect(
+      window.sessionStorage.getItem(
+        reinspectUtils.REINSPECT_INSPECT_BLACKLIST_STORAGE_KEY,
+      ),
+    ).not.toContain('ToastCard')
+  })
+
   it('closes the component context menu from the header close button', async () => {
     const user = userEvent.setup()
 

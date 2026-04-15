@@ -62,6 +62,10 @@ export interface WithReinspectInternalOptions {
 type InspectorPanel = 'general' | 'css' | 'props'
 type PropsPanelView = 'detected' | 'raw'
 
+interface HideComponentToastState {
+  componentName: string
+}
+
 const FALLBACK_CONFIG = {
   enabled: false,
   startActive: false,
@@ -358,6 +362,8 @@ export function withReinspectInternal<P extends object>(
     const [editingPropKey, setEditingPropKey] = useState<string | null>(null)
     const [editingDraft, setEditingDraft] = useState('')
     const [editingError, setEditingError] = useState<string | null>(null)
+    const [hideComponentToast, setHideComponentToast] =
+      useState<HideComponentToastState | null>(null)
     const [computedStyleValues, setComputedStyleValues] = useState<
       Partial<Record<EditableStyleProp, string>>
     >({})
@@ -542,6 +548,20 @@ export function withReinspectInternal<P extends object>(
         globalThis.clearTimeout(timeoutId)
       }
     }, [propsCopyStatus])
+
+    useEffect(() => {
+      if (!hideComponentToast) {
+        return undefined
+      }
+
+      const timeoutId = globalThis.setTimeout(() => {
+        setHideComponentToast(null)
+      }, 5000)
+
+      return () => {
+        globalThis.clearTimeout(timeoutId)
+      }
+    }, [hideComponentToast])
 
     useEffect(() => {
       if (!menuOpen || !menuPosition || !menuRef.current) {
@@ -827,6 +847,21 @@ export function withReinspectInternal<P extends object>(
         patterns: appendUniquePattern(current.patterns, componentName),
       }))
       setMenuPosition(null)
+      setHideComponentToast({ componentName })
+    }
+
+    const undoExcludeAllComponentInstances = () => {
+      if (!hideComponentToast) {
+        return
+      }
+
+      setInspectBlacklist((current) => ({
+        ...current,
+        patterns: current.patterns.filter(
+          (pattern) => pattern !== hideComponentToast.componentName,
+        ),
+      }))
+      setHideComponentToast(null)
     }
 
     const menuElement = menuOpen ? (
@@ -1461,15 +1496,49 @@ export function withReinspectInternal<P extends object>(
         )
       : null
 
+    const hideComponentToastElement = hideComponentToast
+      ? createPortal(
+          <div
+            className="reinspect-toast"
+            data-reinspect-theme={menuTheme}
+            role="status"
+            aria-live="polite"
+            data-testid="reinspect-hide-component-toast"
+          >
+            <div className="reinspect-toast-copy">
+              <p className="reinspect-toast-title">
+                Hidden {hideComponentToast.componentName}
+              </p>
+              <p className="reinspect-toast-description">
+                This component type was excluded from inspection.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="reinspect-toast-undo"
+              data-testid="reinspect-hide-component-undo"
+              onClick={undoExcludeAllComponentInstances}
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              className="reinspect-toast-dismiss"
+              aria-label="Dismiss notification"
+              onClick={() => setHideComponentToast(null)}
+            >
+              ×
+            </button>
+          </div>,
+          document.body,
+        )
+      : null
+
     if (!hasReinspectContext) {
       if (requestedSource === 'manual') {
         throw new Error('useReinspect must be used within ReinspectProvider')
       }
 
-      return <SourceComponent {...renderedProps} />
-    }
-
-    if (!inspectorActive && !menuOpen) {
       return <SourceComponent {...renderedProps} />
     }
 
@@ -1480,6 +1549,15 @@ export function withReinspectInternal<P extends object>(
     ) : (
       <SourceComponent {...renderedProps} />
     )
+
+    if (!inspectorActive && !menuOpen) {
+      return (
+        <>
+          {sourceElement}
+          {hideComponentToastElement}
+        </>
+      )
+    }
 
     return (
       <div
@@ -1507,6 +1585,7 @@ export function withReinspectInternal<P extends object>(
 
         {menuElement ? createPortal(menuElement, document.body) : null}
         {editModalElement}
+        {hideComponentToastElement}
 
         <div
           className="reinspect-content"

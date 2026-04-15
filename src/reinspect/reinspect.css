@@ -306,6 +306,7 @@
   top: -13px;
   left: 10px;
   z-index: calc(var(--reinspect-z-base) + 5);
+  font-family: var(--reinspect-font-mono);
   font-size: 11px;
   line-height: 1;
   letter-spacing: 0.04em;
@@ -340,6 +341,7 @@
 .reinspect-menu-title {
   margin: 0;
   color: var(--reinspect-menu-text);
+  font-family: var(--reinspect-font-mono);
   font-weight: 760;
   font-size: 19px;
   line-height: 1.1;

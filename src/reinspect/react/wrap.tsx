@@ -27,6 +27,7 @@ import {
 } from '../utils'
 import {
   buildDetectedPropsRows,
+  isEditableChildrenPropValue,
   isEditablePropValue,
   parseEditablePropValueInput,
   parsePropsOverridesInput,
@@ -109,6 +110,8 @@ let instanceSequence = 0
 const MENU_VIEWPORT_MARGIN = 12
 const MENU_ESTIMATED_WIDTH = 560
 const MENU_ESTIMATED_HEIGHT = 620
+const INVALID_CHILDREN_OVERRIDE_ERROR =
+  'children can only be null, primitive values, or arrays of primitive values.'
 
 function createInstanceId(componentName: string): string {
   instanceSequence += 1
@@ -235,6 +238,22 @@ function doesEventMatchMenuOpenGesture(
   }
 
   return true
+}
+
+function stripNonEditableChildrenForRawJson(
+  props: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!Object.prototype.hasOwnProperty.call(props, 'children')) {
+    return props
+  }
+
+  if (isEditableChildrenPropValue(props.children)) {
+    return props
+  }
+
+  const next = { ...props }
+  delete next.children
+  return next
 }
 
 function renderCopyIcon() {
@@ -771,7 +790,15 @@ export function withReinspectInternal<P extends object>(
         return
       }
 
-      setPropsOverrides(parsed as Partial<P>)
+      const nextParsed = { ...parsed }
+      if (
+        Object.prototype.hasOwnProperty.call(nextParsed, 'children') &&
+        !isEditableChildrenPropValue(nextParsed.children)
+      ) {
+        delete nextParsed.children
+      }
+
+      setPropsOverrides(nextParsed as Partial<P>)
       setJsonPreviewByProp({})
       setJsonPreviewErrorByProp({})
       setOpenJsonPreviewByProp({})
@@ -782,9 +809,12 @@ export function withReinspectInternal<P extends object>(
       setPropsOverrides({})
       if (propsPanelView === 'raw') {
         setPropsDraft(
-          serializePropsForRawEditor(props as Record<string, unknown>, {
-            mode: propsSerializationMode,
-          }),
+          serializePropsForRawEditor(
+            stripNonEditableChildrenForRawJson(props as Record<string, unknown>),
+            {
+              mode: propsSerializationMode,
+            },
+          ),
         )
       }
       setPropsError(null)
@@ -879,6 +909,14 @@ export function withReinspectInternal<P extends object>(
       const { parsed, error } = parseEditablePropValueInput(editingDraft)
       if (error || parsed === null) {
         setEditingError(error)
+        return
+      }
+
+      if (
+        targetPropKey === 'children' &&
+        !isEditableChildrenPropValue(parsed)
+      ) {
+        setEditingError(INVALID_CHILDREN_OVERRIDE_ERROR)
         return
       }
 
@@ -1363,9 +1401,12 @@ export function withReinspectInternal<P extends object>(
                   setPropsPanelView('raw')
                   setPropsError(null)
                   setPropsDraft(
-                    serializePropsForRawEditor(effectiveProps, {
-                      mode: propsSerializationMode,
-                    }),
+                    serializePropsForRawEditor(
+                      stripNonEditableChildrenForRawJson(effectiveProps),
+                      {
+                        mode: propsSerializationMode,
+                      },
+                    ),
                   )
                 }}
               >
@@ -1384,7 +1425,10 @@ export function withReinspectInternal<P extends object>(
                     const isJsonOpen = Boolean(openJsonPreviewByProp[row.key])
                     const jsonPreview = jsonPreviewByProp[row.key]
                     const jsonPreviewError = jsonPreviewErrorByProp[row.key]
-                    const canEdit = isEditablePropValue(propValue)
+                    const canEdit =
+                      row.key === 'children'
+                        ? isEditableChildrenPropValue(propValue)
+                        : isEditablePropValue(propValue)
                     return (
                       <div
                         className="reinspect-props-row"

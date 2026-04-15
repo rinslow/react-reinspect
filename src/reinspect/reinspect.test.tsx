@@ -1325,6 +1325,96 @@ describe('Reinspect', () => {
     expect(screen.getByText('theme: light')).toBeInTheDocument()
   })
 
+  it('ignores object-shaped children overrides and keeps rendering stable', async () => {
+    const user = userEvent.setup()
+
+    const Wrapped = withReinspect(function ChildrenCard({
+      title,
+      children,
+    }: {
+      title: string
+      children: ReactNode
+    }) {
+      return (
+        <p>
+          {title}: {children}
+        </p>
+      )
+    }, { name: 'ChildrenCard' })
+
+    renderWithReinspect(
+      <Wrapped title="before">
+        <span>child</span>
+      </Wrapped>,
+    )
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-ChildrenCard'))
+    const dialog = screen.getByRole('dialog', {
+      name: 'ChildrenCard controls',
+    })
+
+    await user.click(within(dialog).getByRole('button', { name: 'Props' }))
+    expect(
+      within(dialog).queryByTestId('reinspect-prop-edit-children'),
+    ).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Raw' }))
+
+    const textarea = within(dialog).getByLabelText('Props JSON')
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          '{"title":"after","children":{"key":"item-1","props":{"children":"bad"}}}',
+      },
+    })
+    await user.click(within(dialog).getByRole('button', { name: 'apply' }))
+
+    expect(screen.getByText('child')).toBeInTheDocument()
+    expect(screen.getByText(/after:/)).toBeInTheDocument()
+    expect(
+      within(dialog).queryByText(/children can only be null/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('allows applying raw props unchanged when original children is an element', async () => {
+    const user = userEvent.setup()
+
+    const Wrapped = withReinspect(function RawChildrenCard({
+      title,
+      children,
+    }: {
+      title: string
+      children: ReactNode
+    }) {
+      return (
+        <p>
+          {title}: {children}
+        </p>
+      )
+    }, { name: 'RawChildrenCard' })
+
+    renderWithReinspect(
+      <Wrapped title="before">
+        <span>child</span>
+      </Wrapped>,
+    )
+
+    fireEvent.contextMenu(screen.getByTestId('reinspect-shell-RawChildrenCard'))
+    const dialog = screen.getByRole('dialog', {
+      name: 'RawChildrenCard controls',
+    })
+
+    await user.click(within(dialog).getByRole('button', { name: 'Props' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Raw' }))
+    await user.click(within(dialog).getByRole('button', { name: 'apply' }))
+
+    expect(screen.getByText(/before:/)).toBeInTheDocument()
+    expect(screen.getByText('child')).toBeInTheDocument()
+    expect(
+      within(dialog).queryByText(/children can only be null/i),
+    ).not.toBeInTheDocument()
+  })
+
   it('recalculates detected json prop controls after editing a json value', async () => {
     const user = userEvent.setup()
 

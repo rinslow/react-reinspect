@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildDetectedPropsRows,
+  isEditableChildrenPropValue,
   isEditablePropValue,
   parseEditablePropValueInput,
   parsePropsOverridesInput,
@@ -170,6 +171,18 @@ describe('propsInspector', () => {
     expect(isEditablePropValue(Symbol('x'))).toBe(false)
     expect(isEditablePropValue(new Date())).toBe(false)
     expect(isEditablePropValue(undefined)).toBe(false)
+  })
+
+  it('only allows json-safe children values for children prop edits', () => {
+    expect(isEditableChildrenPropValue('label')).toBe(true)
+    expect(isEditableChildrenPropValue(3)).toBe(true)
+    expect(isEditableChildrenPropValue(false)).toBe(true)
+    expect(isEditableChildrenPropValue(null)).toBe(true)
+    expect(isEditableChildrenPropValue(['one', 2, null, [true]])).toBe(true)
+
+    expect(isEditableChildrenPropValue({ key: 'item-1', props: {} })).toBe(false)
+    expect(isEditableChildrenPropValue([{ key: 'item-1', props: {} }])).toBe(false)
+    expect(isEditableChildrenPropValue(undefined)).toBe(false)
   })
 
   it('parses editable prop value input', () => {

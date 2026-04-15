@@ -8,6 +8,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: 'react-reinspect/style.css',
+        replacement: path.resolve(__dirname, 'src/reinspect/reinspect.css'),
+      },
+      {
         find: 'react-reinspect/internal/auto-wrap',
         replacement: path.resolve(__dirname, 'src/reinspect/internal/auto-wrap.ts'),
       },

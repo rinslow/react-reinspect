@@ -1,6 +1,4 @@
 import { useMemo, useState } from 'react'
-import { ReinspectProvider, type ReinspectConfig } from './reinspect'
-import { DEFAULT_EDITABLE_PROPS } from './reinspect/constants'
 import { TodoAddForm } from './components/TodoAddForm'
 import { TodoFilterBar } from './components/TodoFilterBar'
 import { TodoHeader } from './components/TodoHeader'
@@ -8,16 +6,6 @@ import { TodoItemRow } from './components/TodoItemRow'
 import { TodoListContainer } from './components/TodoListContainer'
 import type { TodoFilter, TodoItem } from './components/types'
 import './App.css'
-
-const reinspectConfig: ReinspectConfig = {
-  enabled: import.meta.env.DEV,
-  startActive: true,
-  showFloatingToggle: true,
-  inspectMode: 'first-party',
-  editableProps: DEFAULT_EDITABLE_PROPS,
-  zIndexBase: 2147483000,
-}
-
 
 function createTodoId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -83,36 +71,34 @@ function App() {
   }
 
   return (
-    <ReinspectProvider config={reinspectConfig}>
-      <main className="todo-page">
-        <section className="todo-panel">
-          <TodoHeader total={counts.all} completed={counts.completed} />
+    <main className="todo-page">
+      <section className="todo-panel">
+        <TodoHeader total={counts.all} completed={counts.completed} />
 
-          <div className="todo-controls">
-            <TodoAddForm onAdd={addTodo} />
-            <TodoFilterBar
-              filter={filter}
-              counts={counts}
-              onFilterChange={setFilter}
+        <div className="todo-controls">
+          <TodoAddForm onAdd={addTodo} />
+          <TodoFilterBar
+            filter={filter}
+            counts={counts}
+            onFilterChange={setFilter}
+          />
+        </div>
+
+        <TodoListContainer
+          visibleCount={visibleTodos.length}
+          emptyLabel={`No ${filter} tasks right now.`}
+        >
+          {visibleTodos.map((todo) => (
+            <TodoItemRow
+              key={todo.id}
+              todo={todo}
+              onToggle={toggleTodo}
+              onDelete={deleteTodo}
             />
-          </div>
-
-          <TodoListContainer
-            visibleCount={visibleTodos.length}
-            emptyLabel={`No ${filter} tasks right now.`}
-          >
-            {visibleTodos.map((todo) => (
-              <TodoItemRow
-                key={todo.id}
-                todo={todo}
-                onToggle={toggleTodo}
-                onDelete={deleteTodo}
-              />
-            ))}
-          </TodoListContainer>
-        </section>
-      </main>
-    </ReinspectProvider>
+          ))}
+        </TodoListContainer>
+      </section>
+    </main>
   )
 }
 

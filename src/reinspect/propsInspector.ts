@@ -532,6 +532,27 @@ export function isEditablePropValue(value: unknown): boolean {
   return isPlainObject(value)
 }
 
+export function isEditableChildrenPropValue(value: unknown): boolean {
+  if (value === null) {
+    return true
+  }
+
+  const valueType = typeof value
+  if (
+    valueType === 'string' ||
+    valueType === 'number' ||
+    valueType === 'boolean'
+  ) {
+    return true
+  }
+
+  if (!Array.isArray(value)) {
+    return false
+  }
+
+  return value.every((item) => isEditableChildrenPropValue(item))
+}
+
 export function parseEditablePropValueInput(input: string): {
   parsed: unknown | null
   error: string | null

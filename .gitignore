@@ -26,3 +26,4 @@ dist-ssr
 .pnpm-home/
 .env
 .env*
+.playwright-cli/

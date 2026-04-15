@@ -1,6 +1,6 @@
 {
   "name": "react-reinspect",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Visual runtime inspector for React components.",
   "homepage": "https://github.com/rinslow/react-reinspect",
   "repository": {
